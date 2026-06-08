@@ -1,24 +1,23 @@
+import { useEffect, useState } from "react";
+import { Loading } from "./shared/components";
+
 function App() {
+  const [loading, setLoading] = useState(true);
+
+  // Teste: exibe o loading assim que o app inicia e o desliga após 3s.
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="min-h-svh bg-slate-50 text-slate-800">
+      <Loading show={loading} backgroundColor="#8340EC" />
       {/* Container centralizado e estreito: pensado primeiro para o celular. */}
       <div className="mx-auto flex min-h-svh max-w-md flex-col px-5">
         <header className="flex items-center gap-2 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-            {/* ícone de calendário */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <path d="M16 2v4M8 2v4M3 10h18" />
-            </svg>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600">
+            <img src="/icon.svg" alt="Marcadata" className="h-5 w-5" />
           </div>
           <span className="text-lg font-semibold tracking-tight text-slate-900">
             Marcadata
@@ -51,7 +50,7 @@ function App() {
         </footer>
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

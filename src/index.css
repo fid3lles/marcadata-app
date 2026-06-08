@@ -14,6 +14,22 @@
   --color-brand-700: #1d4ed8;
   --color-brand-800: #1e40af;
   --color-brand-900: #1e3a8a;
+
+  /* Animação pulsante usada pelo componente de Loading.
+     Disponível como utilitário: `animate-pulse-soft`. */
+  --animate-pulse-soft: pulse-soft 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.55;
+  }
 }
 
 html {
