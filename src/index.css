@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Tema base do Marcadata.
+   Tokens de cor reutilizáveis via @theme — disponíveis como utilitários
+   do Tailwind (ex.: bg-brand-600, text-brand-700). */
+@theme {
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9eaff;
+  --color-brand-200: #bcd9ff;
+  --color-brand-300: #8ec0ff;
+  --color-brand-400: #599cff;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Respeita áreas seguras de celulares com notch. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
