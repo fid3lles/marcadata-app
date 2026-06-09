@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   # Publica a cada push na branch principal.
   push:
-    branches: [main]
+    branches: [master]
   # Permite disparar manualmente pela aba Actions.
   workflow_dispatch:
 
