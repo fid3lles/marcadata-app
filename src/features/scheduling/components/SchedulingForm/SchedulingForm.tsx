@@ -4,16 +4,11 @@ import type { IBusiness, IProvidedService } from "../../../business";
 import { StepIndicator } from "../StepIndicator";
 import { ServiceStep } from "../ServiceStep";
 import { SCHEDULING_STEPS, TOTAL_STEPS } from "../../steps";
+import type { SelectedService } from "../../types";
 
 export interface SchedulingFormProps {
   /** Estabelecimento sendo agendado (cor, serviços, etc.). */
   business: IBusiness;
-}
-
-/** Serviço escolhido pelo usuário, com a quantidade selecionada. */
-interface SelectedService {
-  service: IProvidedService;
-  quantity: number;
 }
 
 /**
@@ -37,19 +32,24 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   const goNext = () => setCurrentStep((step) => Math.min(step + 1, TOTAL_STEPS));
   const goBack = () => setCurrentStep((step) => Math.max(step - 1, 1));
 
-  // Adiciona (ou acumula) um serviço à seleção.
-  const addService = (service: IProvidedService, quantity: number) => {
+  // Define a quantidade de um serviço na seleção (insere ou atualiza).
+  const upsertService = (service: IProvidedService, quantity: number) => {
     setSelectedServices((current) => {
-      const existing = current.find((item) => item.service.id === service.id);
-      if (existing) {
+      const exists = current.some((item) => item.service.id === service.id);
+      if (exists) {
         return current.map((item) =>
-          item.service.id === service.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item,
+          item.service.id === service.id ? { ...item, quantity } : item,
         );
       }
       return [...current, { service, quantity }];
     });
+  };
+
+  // Remove um serviço da seleção.
+  const removeService = (serviceId: number) => {
+    setSelectedServices((current) =>
+      current.filter((item) => item.service.id !== serviceId),
+    );
   };
 
   const selectedCount = selectedServices.reduce(
@@ -73,7 +73,9 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
           <ServiceStep
             services={business.providedServices}
             color={business.color}
-            onAddService={addService}
+            selectedServices={selectedServices}
+            onConfirmService={upsertService}
+            onRemoveService={removeService}
           />
         ) : (
           // Placeholder das demais etapas — serão substituídas pelos componentes reais.

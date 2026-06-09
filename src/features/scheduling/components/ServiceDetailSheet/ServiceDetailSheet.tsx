@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ImageOff, Minus, Plus } from "lucide-react";
+import { ChevronDown, ImageOff, Minus, Plus, Trash2 } from "lucide-react";
 import { BottomSheet } from "../../../../shared/components";
 import {
   formatCurrency,
@@ -15,34 +15,52 @@ export interface ServiceDetailSheetProps {
   color: string;
   /** Controla a abertura da bandeja. */
   open: boolean;
+  /** Muda a cada abertura, forçando a remontagem do conteúdo. */
+  openSeq: number;
+  /** Quantidade inicial do seletor (a já selecionada, ou 1). */
+  initialQuantity: number;
+  /** Se o serviço já faz parte da seleção (habilita a remoção via lixeira). */
+  isSelected: boolean;
   /** Chamado ao fechar. */
   onClose: () => void;
-  /** Chamado ao confirmar a adição do serviço, com a quantidade escolhida. */
-  onAdd: (service: IProvidedService, quantity: number) => void;
+  /** Confirma a quantidade escolhida para o serviço. */
+  onConfirm: (service: IProvidedService, quantity: number) => void;
+  /** Remove o serviço da seleção. */
+  onRemove: (serviceId: number) => void;
 }
 
 /**
  * Bandeja de detalhes de um serviço, no layout de "produto":
  * imagem (placeholder) com botão de fechar, nome, descrição, preço e
  * uma barra inferior com seletor de quantidade + botão "Adicionar".
+ *
+ * O seletor abre com a quantidade já escolhida (se houver). Ao chegar em 1,
+ * o botão de diminuir vira uma lixeira que remove o serviço da seleção.
  */
 export function ServiceDetailSheet({
   service,
   color,
   open,
+  openSeq,
+  initialQuantity,
+  isSelected,
   onClose,
-  onAdd,
+  onConfirm,
+  onRemove,
 }: ServiceDetailSheetProps) {
   return (
     <BottomSheet open={open} onClose={onClose}>
       {service && (
-        // key remonta o conteúdo (zera a quantidade) a cada serviço aberto.
+        // key remonta o conteúdo a cada abertura, reiniciando a quantidade.
         <ServiceDetailContent
-          key={service.id}
+          key={openSeq}
           service={service}
           color={color}
+          initialQuantity={initialQuantity}
+          isSelected={isSelected}
           onClose={onClose}
-          onAdd={onAdd}
+          onConfirm={onConfirm}
+          onRemove={onRemove}
         />
       )}
     </BottomSheet>
@@ -52,19 +70,39 @@ export function ServiceDetailSheet({
 interface ServiceDetailContentProps {
   service: IProvidedService;
   color: string;
+  initialQuantity: number;
+  isSelected: boolean;
   onClose: () => void;
-  onAdd: (service: IProvidedService, quantity: number) => void;
+  onConfirm: (service: IProvidedService, quantity: number) => void;
+  onRemove: (serviceId: number) => void;
 }
 
 function ServiceDetailContent({
   service,
   color,
+  initialQuantity,
+  isSelected,
   onClose,
-  onAdd,
+  onConfirm,
+  onRemove,
 }: ServiceDetailContentProps) {
   const hex = toCssHex(color);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(initialQuantity);
   const total = service.price * quantity;
+  const atMinimum = quantity === 1;
+
+  // A lixeira só aparece se o serviço já estiver selecionado e a quantidade
+  // estiver em 1; aí remove da seleção. Caso contrário, é o "diminuir" comum.
+  const showTrash = isSelected && atMinimum;
+
+  const handleDecrement = () => {
+    if (showTrash) {
+      onRemove(service.id);
+      onClose();
+      return;
+    }
+    setQuantity((current) => Math.max(1, current - 1));
+  };
 
   return (
     <>
@@ -104,20 +142,24 @@ function ServiceDetailContent({
         <div className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5">
           <button
             type="button"
-            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-            disabled={quantity === 1}
-            aria-label="Diminuir quantidade"
+            onClick={handleDecrement}
+            disabled={!showTrash && atMinimum}
+            aria-label={showTrash ? "Remover serviço" : "Diminuir quantidade"}
             className="disabled:opacity-30"
             style={{ color: hex }}
           >
-            <Minus className="h-5 w-5" aria-hidden="true" />
+            {showTrash ? (
+              <Trash2 className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Minus className="h-5 w-5" aria-hidden="true" />
+            )}
           </button>
           <span className="w-5 text-center font-semibold text-slate-900">
             {quantity}
           </span>
           <button
             type="button"
-            onClick={() => setQuantity((q) => q + 1)}
+            onClick={() => setQuantity((current) => current + 1)}
             aria-label="Aumentar quantidade"
             style={{ color: hex }}
           >
@@ -128,13 +170,13 @@ function ServiceDetailContent({
         <button
           type="button"
           onClick={() => {
-            onAdd(service, quantity);
+            onConfirm(service, quantity);
             onClose();
           }}
           className="flex flex-1 items-center justify-between rounded-xl px-5 py-3.5 font-semibold text-white transition active:scale-[0.98]"
           style={{ backgroundColor: hex }}
         >
-          <span>Adicionar</span>
+          <span>{isSelected ? "Atualizar" : "Adicionar"}</span>
           <span>{formatCurrency(total)}</span>
         </button>
       </div>

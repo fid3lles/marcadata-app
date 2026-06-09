@@ -8,3 +8,4 @@ export { ServiceDetailSheet } from "./components/ServiceDetailSheet";
 export type { ServiceDetailSheetProps } from "./components/ServiceDetailSheet";
 export { SCHEDULING_STEPS, TOTAL_STEPS } from "./steps";
 export type { SchedulingStep } from "./steps";
+export type { SelectedService } from "./types";
