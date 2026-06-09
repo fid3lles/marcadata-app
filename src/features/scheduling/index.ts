@@ -4,6 +4,8 @@ export { StepIndicator } from "./components/StepIndicator";
 export type { StepIndicatorProps } from "./components/StepIndicator";
 export { ServiceStep } from "./components/ServiceStep";
 export type { ServiceStepProps } from "./components/ServiceStep";
+export { DateTimeStep } from "./components/DateTimeStep";
+export type { DateTimeStepProps } from "./components/DateTimeStep";
 export { ServiceDetailSheet } from "./components/ServiceDetailSheet";
 export type { ServiceDetailSheetProps } from "./components/ServiceDetailSheet";
 export { SCHEDULING_STEPS, TOTAL_STEPS } from "./steps";

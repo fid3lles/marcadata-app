@@ -1,6 +1,7 @@
 import { http, HttpResponse, delay } from "msw";
 import { API_BASE_PATH } from "../api";
-import type { IBusiness } from "../../features/business";
+import type { IAgenda, IBusiness } from "../../features/business";
+import { addDays, fromISODate, toISODate } from "../../shared/utils";
 
 /** Lojas mockadas, indexadas pelo businessId. */
 const BUSINESSES: Record<string, IBusiness> = {
@@ -168,4 +169,42 @@ export const handlers = [
 
     return HttpResponse.json(business);
   }),
+
+  // Agenda da loja: GET /scheduler/core/api/v1/business/:businessId/agenda?date=AAAA-MM-DD
+  http.get(
+    `${API_BASE_PATH}/business/:businessId/agenda`,
+    async ({ params, request }) => {
+      await delay(800);
+
+      // Datas geradas relativas à data pedida, para a demo ficar coerente.
+      const dateParam =
+        new URL(request.url).searchParams.get("date") ?? toISODate(new Date());
+      const base = fromISODate(dateParam);
+      const shift = (days: number) => toISODate(addDays(base, days));
+
+      const agenda: IAgenda = {
+        businessId: Number(params.businessId),
+        busyDays: [
+          {
+            date: shift(0),
+            periods: [
+              { start: "09:00", end: "10:00" },
+              { start: "11:00", end: "11:05" },
+            ],
+          },
+          {
+            date: shift(1),
+            periods: [
+              { start: "08:00", end: "10:00" },
+              { start: "10:00", end: "11:05" },
+            ],
+          },
+        ],
+        closedDays: [{ date: shift(5) }, { date: shift(6) }],
+        openTime: { start: "09:00", end: "18:00" },
+      };
+
+      return HttpResponse.json(agenda);
+    },
+  ),
 ];

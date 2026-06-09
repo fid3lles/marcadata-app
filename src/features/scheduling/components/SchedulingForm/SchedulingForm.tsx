@@ -3,6 +3,7 @@ import { formatCurrency, toCssHex } from "../../../../shared/utils";
 import type { IBusiness, IProvidedService } from "../../../business";
 import { StepIndicator } from "../StepIndicator";
 import { ServiceStep } from "../ServiceStep";
+import { DateTimeStep } from "../DateTimeStep";
 import { SCHEDULING_STEPS, TOTAL_STEPS } from "../../steps";
 import type { SelectedService } from "../../types";
 
@@ -69,7 +70,7 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
       <StepIndicator currentStep={currentStep} color={business.color} />
 
       <div className="mt-8 flex min-h-0 flex-1 flex-col">
-        {currentStep === 1 ? (
+        {currentStep === 1 && (
           <ServiceStep
             services={business.providedServices}
             color={business.color}
@@ -77,7 +78,16 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
             onConfirmService={upsertService}
             onRemoveService={removeService}
           />
-        ) : (
+        )}
+
+        {currentStep === 2 && (
+          <DateTimeStep
+            businessId={business.businessId}
+            color={business.color}
+          />
+        )}
+
+        {currentStep > 2 && (
           // Placeholder das demais etapas — serão substituídas pelos componentes reais.
           <div>
             <h2 className="text-lg font-bold text-slate-900">
