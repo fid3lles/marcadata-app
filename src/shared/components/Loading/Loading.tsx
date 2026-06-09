@@ -1,8 +1,8 @@
 import type { TransitionEvent } from "react";
 import { getReadableForeground, toCssHex } from "../../utils";
 
-/** Logo servido a partir de `public/`. */
-const LOGO_SRC = "/marcadata_logo.svg";
+/** Logo servido a partir de `public/`. Respeita o base do Vite (GitHub Pages). */
+const LOGO_SRC = `${import.meta.env.BASE_URL}marcadata_logo.svg`;
 
 export interface LoadingProps {
   /**
