@@ -10,9 +10,26 @@ import { addDays, fromISODate, toISODate } from "../../shared/utils";
 
 /** Profissionais base da loja (a disponibilidade varia por horário no mock). */
 const PROFESSIONALS: IProfessional[] = [
-  { id: 1, name: "João Silva", expertise: "Cabeleireiro", imgHref: "" },
-  { id: 2, name: "Maria Oliveira", expertise: "Cabeleireira", imgHref: "" },
-  { id: 3, name: "Carlos Pereira", expertise: "Cabeleireiro", imgHref: "" },
+  {
+    id: 1,
+    name: "João Silva",
+    expertise: "Cabeleireiro",
+    imgHref:
+      "https://img.magnific.com/fotos-premium/cabeleireiro-trabalhando-em-um-salao-de-cabeleireiro-barbeiro-usando-tesoura-isolada-em-preto-cortar-cabelo-de-um-barbeiro-em-uma-barbearia-homem-caucasiano-barbador-em-salao-de-cabelo-barbearia-elegante_474717-185694.jpg",
+  },
+  {
+    id: 2,
+    name: "Maria Oliveira",
+    expertise: "Cabeleireira",
+    imgHref:
+      "https://i.pinimg.com/236x/f0/98/f5/f098f54268c1980db43620eae0b65918.jpg",
+  },
+  {
+    id: 3,
+    name: "Carlos Pereira",
+    expertise: "Cabeleireiro",
+    imgHref: "",
+  },
 ];
 
 /** Lojas mockadas, indexadas pelo businessId. */

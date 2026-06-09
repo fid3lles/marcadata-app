@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import confetti from "canvas-confetti";
-import { CircleCheckBig, Loader2, Send } from "lucide-react";
+import { CalendarPlus, CircleCheckBig, Loader2, Send } from "lucide-react";
+import whatsappIcon from "../../../../assets/whatsapp_icon.svg";
 import { formatCurrency, toCssHex, toISODate } from "../../../../shared/utils";
 import {
   businessService,
@@ -69,6 +70,7 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState(false);
+  const [scheduleId, setScheduleId] = useState<string | null>(null);
 
   // Confetes da tela de sucesso (saem de trás do ícone de check).
   const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -231,9 +233,65 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
 
     scheduleService
       .create(payload)
-      .then(() => setSubmitted(true))
+      .then((response) => {
+        setScheduleId(response.id);
+        setSubmitted(true);
+      })
       .catch(() => setSubmitError(true))
       .finally(() => setSubmitting(false));
+  };
+
+  // Abre o Google Calendar já com os dados do agendamento preenchidos.
+  const handleAddToCalendar = () => {
+    if (!selectedDate || !selectedTime) return;
+
+    const start = new Date(`${selectedDate}T${selectedTime}`);
+    const minutes =
+      selectedServices.reduce(
+        (sum, item) => sum + item.service.duration * item.quantity,
+        0,
+      ) || 60;
+    const end = new Date(start.getTime() + minutes * 60_000);
+
+    // Formato exigido pelo Google Calendar: AAAAMMDDTHHMMSS (horário local).
+    const fmt = (date: Date) =>
+      [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+        "T",
+        String(date.getHours()).padStart(2, "0"),
+        String(date.getMinutes()).padStart(2, "0"),
+        "00",
+      ].join("");
+
+    const { address } = business;
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: `Agendamento · ${business.businessName}`,
+      dates: `${fmt(start)}/${fmt(end)}`,
+      details: selectedServices
+        .map((item) => `${item.quantity}x ${item.service.name}`)
+        .join(", "),
+      location: `${address.street}, ${address.number} - ${address.city}/${address.state}`,
+    });
+
+    window.open(
+      `https://calendar.google.com/calendar/render?${params.toString()}`,
+      "_blank",
+      "noopener",
+    );
+  };
+
+  // Abre o WhatsApp com uma mensagem inicial.
+  // TODO: direcionar ao número do estabelecimento quando a API fornecê-lo.
+  const handleContactWhatsApp = () => {
+    const message = `Olá! Acabei de fazer um agendamento na ${business.businessName}.`;
+    window.open(
+      `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener",
+    );
   };
 
   const selectedCount = selectedServices.reduce(
@@ -264,27 +322,74 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   // Após o sucesso, substitui o formulário pela confirmação.
   if (submitted) {
     return (
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center animate-fade-in">
+      <div className="relative flex min-h-0 flex-1 flex-col px-6 pb-6 animate-fade-in">
         {/* Canvas dos confetes — atrás do conteúdo (ícone/textos com z-10). */}
         <canvas
           ref={confettiCanvasRef}
           className="pointer-events-none absolute inset-0 h-full w-full"
         />
 
-        <span ref={checkIconRef} className="relative z-10">
-          <CircleCheckBig
-            className="h-24 w-24"
-            style={{ color: hex }}
-            aria-hidden="true"
-          />
-        </span>
-        <h2 className="relative z-10 mt-6 text-2xl font-bold text-slate-900">
-          Agendamento Concluído!
-        </h2>
-        <p className="relative z-10 mt-3 text-slate-500">
-          Você receberá uma mensagem via WhatsApp assim que o estabelecimento
-          confirmar o seu agendamento!
+        {/* Id do agendamento, alinhado ao topo. */}
+        <p className="relative z-10 pt-2 text-center text-sm text-slate-500">
+          ID do agendamento:{" "}
+          <span className="font-semibold text-slate-700">{scheduleId}</span>
         </p>
+
+        {/* Mensagem de sucesso, centralizada no espaço disponível. */}
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
+          <span ref={checkIconRef} className="relative z-10">
+            <CircleCheckBig
+              className="h-24 w-24"
+              style={{ color: hex }}
+              aria-hidden="true"
+            />
+          </span>
+          <h2 className="relative z-10 mt-6 text-2xl font-bold text-slate-900">
+            Agendamento Concluído!
+          </h2>
+          <p className="relative z-10 mt-3 text-slate-500">
+            Você receberá uma mensagem via WhatsApp assim que o estabelecimento
+            confirmar o seu agendamento!
+          </p>
+        </div>
+
+        {/* Ações */}
+        <div className="relative z-10 space-y-3">
+          <button
+            type="button"
+            onClick={handleAddToCalendar}
+            style={{ borderColor: hex, color: hex }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 bg-white py-3.5 font-semibold transition active:scale-[0.98]"
+          >
+            <CalendarPlus className="h-5 w-5" aria-hidden="true" />
+            Adicionar ao calendário
+          </button>
+
+          <button
+            type="button"
+            onClick={handleContactWhatsApp}
+            style={{ borderColor: hex, color: hex }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 bg-white py-3.5 font-semibold transition active:scale-[0.98]"
+          >
+            {/* Glifo do WhatsApp colorido na cor da loja via máscara CSS. */}
+            <span
+              aria-hidden="true"
+              className="h-5 w-5"
+              style={{
+                backgroundColor: hex,
+                maskImage: `url("${whatsappIcon}")`,
+                WebkitMaskImage: `url("${whatsappIcon}")`,
+                maskRepeat: "no-repeat",
+                WebkitMaskRepeat: "no-repeat",
+                maskSize: "contain",
+                WebkitMaskSize: "contain",
+                maskPosition: "center",
+                WebkitMaskPosition: "center",
+              }}
+            />
+            Falar com estabelecimento
+          </button>
+        </div>
       </div>
     );
   }
