@@ -13,7 +13,9 @@ function App() {
   );
 
   // Sem id não há o que buscar: já começa fora do loading, com a mensagem.
-  const [loading, setLoading] = useState(() => businessId !== null);
+  const [loadingVisible, setLoadingVisible] = useState(
+    () => businessId !== null,
+  );
   const [business, setBusiness] = useState<IBusiness | null>(null);
   const [error, setError] = useState<string | null>(() =>
     businessId === null ? MISSING_ID_MESSAGE : null,
@@ -28,13 +30,15 @@ function App() {
     businessService
       .getById(Number(businessId))
       .then((data) => {
+        // Não desliga o loading aqui: ele anima a revelação da cor e só some
+        // ao fim da animação, via onRevealComplete.
         if (active) setBusiness(data);
       })
       .catch(() => {
-        if (active) setError("Não foi possível carregar os dados da loja.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+        if (active) {
+          setError("Não foi possível carregar os dados da loja.");
+          setLoadingVisible(false);
+        }
       });
 
     return () => {
@@ -44,8 +48,14 @@ function App() {
 
   return (
     <>
-      {/* Enquanto busca os dados da loja, exibe o overlay de carregamento. */}
-      <Loading show={loading} backgroundColor="#8340EC" />
+      {/* Carregamento: branco com logo preto pulsando; ao chegar os dados,
+          anima o fundo para a cor da loja e some ao fim da animação. */}
+      {loadingVisible && (
+        <Loading
+          revealColor={business?.color ?? null}
+          onRevealComplete={() => setLoadingVisible(false)}
+        />
+      )}
 
       {error && !business && (
         <div className="flex min-h-svh items-center justify-center p-6 text-center text-sm text-amber-800">
