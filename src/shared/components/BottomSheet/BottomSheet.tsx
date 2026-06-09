@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 
 export interface BottomSheetProps {
   /** Controla a abertura da bandeja. */
@@ -11,9 +12,10 @@ export interface BottomSheetProps {
 }
 
 /**
- * Bandeja que desliza de baixo para cima, sobre um backdrop escurecido.
- * Reutilizável: controlada por `open`/`onClose`. Centralizada no mesmo
- * `max-w-md` do app e ancorada na base do viewport.
+ * Bandeja que desliza de baixo para cima, sobre um backdrop que escurece a
+ * tela toda. Reutilizável: controlada por `open`/`onClose`. Centralizada no
+ * mesmo `max-w-md` do app e ancorada na base do viewport. Fecha no clique do
+ * backdrop ou na tecla Esc.
  */
 export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
   // Fecha ao pressionar Esc enquanto estiver aberta.
@@ -33,7 +35,7 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
       className={`fixed inset-0 z-50 ${open ? "" : "pointer-events-none"}`}
       aria-hidden={!open}
     >
-      {/* Backdrop */}
+      {/* Backdrop — escurece a tela toda e fecha ao ser clicado. */}
       <button
         type="button"
         aria-label="Fechar"
@@ -52,6 +54,16 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
           open ? "translate-y-0" : "translate-y-full"
         }`}
       >
+        {/* Botão de fechar — presente em toda bandeja. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fechar"
+          className="absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow"
+        >
+          <ChevronDown className="h-5 w-5" aria-hidden="true" />
+        </button>
+
         {children}
       </div>
     </div>

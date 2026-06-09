@@ -1,7 +1,19 @@
 import { http, HttpResponse, delay } from "msw";
 import { API_BASE_PATH } from "../api";
-import type { IAgenda, IBusiness } from "../../features/business";
+import type {
+  IAgenda,
+  IBusiness,
+  IBusinessProfessionals,
+  IProfessional,
+} from "../../features/business";
 import { addDays, fromISODate, toISODate } from "../../shared/utils";
+
+/** Profissionais base da loja (a disponibilidade varia por horário no mock). */
+const PROFESSIONALS: IProfessional[] = [
+  { id: 1, name: "João Silva", expertise: "Cabeleireiro", imgHref: "" },
+  { id: 2, name: "Maria Oliveira", expertise: "Cabeleireira", imgHref: "" },
+  { id: 3, name: "Carlos Pereira", expertise: "Cabeleireiro", imgHref: "" },
+];
 
 /** Lojas mockadas, indexadas pelo businessId. */
 const BUSINESSES: Record<string, IBusiness> = {
@@ -25,6 +37,8 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Corte de cabelo",
         description:
           "Corte de cabelo profissional em todos os tipos, estilos e sexos. Inclui lavagem, corte e finalização.",
+        imageHref:
+          "https://img.magnific.com/fotos-premium/o-processo-de-corte-de-cabelo-masculino-em-uma-barbearia-estilosa_199683-145.jpg",
         price: 60.0,
         duration: 62,
       },
@@ -33,6 +47,8 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Barba",
         description:
           "Barba de todos os tamanhos. Inclui lavagem, corte e finalização.",
+        imageHref:
+          "https://img.magnific.com/fotos-gratis/homem-bonito-a-cortar-a-barba-num-barbeiro_1303-20931.jpg",
         price: 20.0,
         duration: 20,
       },
@@ -40,6 +56,8 @@ const BUSINESSES: Record<string, IBusiness> = {
         id: 3,
         name: "Sobrancelha",
         description: "Limpamos sua sobrancelha com profissionalismo e cuidado.",
+        imageHref:
+          "https://blog.vonbarbarov.com.br/wp-content/uploads/2021/02/Sobrancelha-Masculina-Barbarov.png",
         price: 10.0,
         duration: 5,
       },
@@ -48,6 +66,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Combo sobrancelha + barba",
         description:
           "Combo com os dois serviços mais populares do salão, para você ficar com a aparência em dia e pagar menos.",
+        imageHref: "",
         price: 25.5,
         duration: 5,
       },
@@ -56,21 +75,8 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Combo sobrancelha + barba + cabelo",
         description:
           "Cuidado completo para sua aparência, com os três serviços mais populares do salão e um desconto mais que especial.",
+        imageHref: "",
         price: 70.0,
-        duration: 5,
-      },
-      {
-        id: 6,
-        name: "Sobrancelha",
-        description: "Limpamos sua sobrancelha com profissionalismo e cuidado.",
-        price: 10.0,
-        duration: 5,
-      },
-      {
-        id: 7,
-        name: "Sobrancelha",
-        description: "Limpamos sua sobrancelha com profissionalismo e cuidado.",
-        price: 10.0,
         duration: 5,
       },
     ],
@@ -96,6 +102,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Banho",
         description:
           "Banho completo com shampoo neutro, secagem e perfume. Para cães e gatos de todos os portes.",
+        imageHref: "",
         price: 45.0,
         duration: 50,
       },
@@ -104,6 +111,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Tosa higiênica",
         description:
           "Aparamos as regiões íntimas, patas e focinho para manter seu pet limpinho e confortável.",
+        imageHref: "",
         price: 35.0,
         duration: 40,
       },
@@ -112,6 +120,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Tosa na máquina",
         description:
           "Tosa completa na máquina no comprimento de sua preferência, ideal para os dias quentes.",
+        imageHref: "",
         price: 70.0,
         duration: 75,
       },
@@ -120,6 +129,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Banho + Tosa completa",
         description:
           "O pacote mais pedido: banho caprichado seguido de tosa completa, com hidratação de brinde.",
+        imageHref: "",
         price: 99.9,
         duration: 120,
       },
@@ -128,6 +138,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Corte de unhas",
         description:
           "Corte e lixamento das unhas feito com cuidado por profissionais experientes.",
+        imageHref: "",
         price: 15.0,
         duration: 15,
       },
@@ -136,6 +147,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Hidratação de pelos",
         description:
           "Tratamento intensivo que deixa os pelos macios, brilhantes e livres de nós.",
+        imageHref: "",
         price: 55.0,
         duration: 45,
       },
@@ -144,6 +156,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         name: "Escovação dental",
         description:
           "Higiene bucal com creme dental próprio para pets, combatendo o mau hálito e o tártaro.",
+        imageHref: "",
         price: 25.0,
         duration: 20,
       },
@@ -170,20 +183,43 @@ export const handlers = [
     return HttpResponse.json(business);
   }),
 
-  // Agenda da loja: GET /scheduler/core/api/v1/business/:businessId/agenda?date=AAAA-MM-DD
+  // Agenda da loja: GET /scheduler/core/api/v1/business/:businessId/agenda
+  // - ?datestart=AAAA-MM-DDTHH:mm:ssZ  → profissionais disponíveis no horário
+  // - ?date=AAAA-MM-DD                 → ocupações/dias fechados/funcionamento
   http.get(
     `${API_BASE_PATH}/business/:businessId/agenda`,
     async ({ params, request }) => {
       await delay(800);
 
+      const searchParams = new URL(request.url).searchParams;
+      const businessId = Number(params.businessId);
+
+      // Profissionais para um horário específico.
+      const dateStart = searchParams.get("datestart");
+      if (dateStart) {
+        // A disponibilidade varia conforme a hora, só para a demo refletir a
+        // troca de horário: um profissional fica indisponível por vez.
+        const hour = Number(dateStart.slice(11, 13)) || 0;
+        const unavailableIndex = hour % PROFESSIONALS.length;
+
+        const professionals: IBusinessProfessionals = {
+          businessId,
+          professionals: {
+            available: PROFESSIONALS.filter((_, i) => i !== unavailableIndex),
+            unavailable: PROFESSIONALS.filter((_, i) => i === unavailableIndex),
+          },
+        };
+
+        return HttpResponse.json(professionals);
+      }
+
       // Datas geradas relativas à data pedida, para a demo ficar coerente.
-      const dateParam =
-        new URL(request.url).searchParams.get("date") ?? toISODate(new Date());
+      const dateParam = searchParams.get("date") ?? toISODate(new Date());
       const base = fromISODate(dateParam);
       const shift = (days: number) => toISODate(addDays(base, days));
 
       const agenda: IAgenda = {
-        businessId: Number(params.businessId),
+        businessId,
         busyDays: [
           {
             date: shift(0),
@@ -207,4 +243,25 @@ export const handlers = [
       return HttpResponse.json(agenda);
     },
   ),
+
+  // Criação de agendamento: POST /scheduler/core/api/v1/schedule
+  http.post(`${API_BASE_PATH}/schedule`, async () => {
+    await delay(1200);
+
+    return HttpResponse.json({
+      id: "1",
+      startDateHour: "2026-01-01T09:00:00Z",
+      endDateHour: "2026-01-01T17:00:00Z",
+      address: {
+        street: "Rua Exemplo",
+        number: "123",
+        complement: "Apto 45",
+        district: "Centro",
+        city: "São Paulo",
+        state: "SP",
+        country: "Brasil",
+        zipCode: "01234-567",
+      },
+    });
+  }),
 ];

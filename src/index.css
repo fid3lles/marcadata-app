@@ -22,6 +22,9 @@
   /* Animação pulsante usada pelo componente de Loading.
      Disponível como utilitário: `animate-pulse-soft`. */
   --animate-pulse-soft: pulse-soft 1.4s ease-in-out infinite;
+
+  /* Fade in rápido para trocas de componente. Utilitário: `animate-fade-in`. */
+  --animate-fade-in: fade-in 0.25s ease-out;
 }
 
 @keyframes pulse-soft {
@@ -33,6 +36,17 @@
   50% {
     transform: scale(1.12);
     opacity: 0.55;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

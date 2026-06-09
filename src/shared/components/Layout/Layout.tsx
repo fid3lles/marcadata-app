@@ -6,6 +6,8 @@ export interface LayoutProps {
   color: string;
   /** Nome do estabelecimento exibido no Header. */
   businessName: string;
+  /** Conteúdo da bottom sheet de informações, aberta pelo ícone no Header. */
+  headerInfo?: ReactNode;
   /** Conteúdo da tela atual — a única parte que muda entre as telas. */
   children: ReactNode;
 }
@@ -18,10 +20,15 @@ export interface LayoutProps {
  * `children` é substituído. Quando o roteamento for adicionado, basta
  * envolver as rotas com este Layout (ex.: usando um `<Outlet />` em `children`).
  */
-export function Layout({ color, businessName, children }: LayoutProps) {
+export function Layout({
+  color,
+  businessName,
+  headerInfo,
+  children,
+}: LayoutProps) {
   return (
     <div className="mx-auto flex h-svh max-w-md flex-col bg-white">
-      <Header color={color} businessName={businessName} />
+      <Header color={color} businessName={businessName} info={headerInfo} />
       <main className="flex min-h-0 flex-1 flex-col">{children}</main>
     </div>
   );

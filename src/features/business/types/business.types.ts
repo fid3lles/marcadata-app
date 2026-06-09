@@ -15,6 +15,7 @@ export interface IProvidedService {
   id: number;
   name: string;
   description: string;
+  imageHref: string;
   /** Preço em reais. */
   price: number;
   /** Duração do serviço em minutos. */

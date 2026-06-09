@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ImageOff, Minus, Plus, Trash2 } from "lucide-react";
+import { ImageOff, Minus, Plus, Trash2 } from "lucide-react";
 import { BottomSheet } from "../../../../shared/components";
 import {
   formatCurrency,
@@ -106,17 +106,17 @@ function ServiceDetailContent({
 
   return (
     <>
-      {/* Imagem (placeholder) com botão de fechar */}
-      <div className="relative flex h-56 shrink-0 items-center justify-center bg-slate-100 text-slate-300">
-        <ImageOff className="h-12 w-12" aria-hidden="true" />
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Fechar"
-          className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow"
-        >
-          <ChevronDown className="h-5 w-5" aria-hidden="true" />
-        </button>
+      {/* Imagem do serviço; sem URL, mostra o ícone. (Fechar vem da BottomSheet.) */}
+      <div className="flex h-56 shrink-0 items-center justify-center overflow-hidden bg-slate-100 text-slate-300">
+        {service.imageHref ? (
+          <img
+            src={service.imageHref}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <ImageOff className="h-12 w-12" aria-hidden="true" />
+        )}
       </div>
 
       {/* Conteúdo */}

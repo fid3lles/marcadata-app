@@ -1,11 +1,23 @@
-import { useState } from "react";
-import { formatCurrency, toCssHex } from "../../../../shared/utils";
-import type { IBusiness, IProvidedService } from "../../../business";
+import { useEffect, useMemo, useRef, useState } from "react";
+import confetti from "canvas-confetti";
+import { CircleCheckBig, Loader2, Send } from "lucide-react";
+import { formatCurrency, toCssHex, toISODate } from "../../../../shared/utils";
+import {
+  businessService,
+  type IAgenda,
+  type IBusiness,
+  type IBusinessProfessionals,
+  type IProvidedService,
+} from "../../../business";
 import { StepIndicator } from "../StepIndicator";
 import { ServiceStep } from "../ServiceStep";
 import { DateTimeStep } from "../DateTimeStep";
-import { SCHEDULING_STEPS, TOTAL_STEPS } from "../../steps";
-import type { SelectedService } from "../../types";
+import { ProfessionalStep } from "../ProfessionalStep";
+import { PersonalDataStep } from "../PersonalDataStep";
+import { TOTAL_STEPS } from "../../steps";
+import { isValidFullName, isValidPhone } from "../../personalData";
+import { scheduleService } from "../../services/ScheduleService";
+import type { IScheduleRequest, SelectedService } from "../../types";
 
 export interface SchedulingFormProps {
   /** Estabelecimento sendo agendado (cor, serviços, etc.). */
@@ -17,21 +29,147 @@ export interface SchedulingFormProps {
  * indicador de progresso no topo, conteúdo da etapa atual no meio e
  * navegação embaixo.
  *
- * O conteúdo das etapas 2-4 ainda é placeholder — cada uma virará seu
- * próprio componente (DateTimeStep, ProfessionalStep, PersonalDataStep).
+ * O estado de todas as etapas (serviços, data/hora, agenda) vive aqui, então
+ * o usuário pode ir e voltar livremente sem perder o que já selecionou.
+ *
+ * O conteúdo das etapas 3-4 ainda é placeholder.
  */
 export function SchedulingForm({ business }: SchedulingFormProps) {
   const [currentStep, setCurrentStep] = useState(1);
+
+  // Etapa 1 — serviços.
   const [selectedServices, setSelectedServices] = useState<SelectedService[]>(
     [],
   );
+
+  // Etapa 2 — data/hora e agenda.
+  const todayIso = useMemo(() => toISODate(new Date()), []);
+  const [agenda, setAgenda] = useState<IAgenda | null>(null);
+  const [agendaLoading, setAgendaLoading] = useState(false);
+  const [agendaError, setAgendaError] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(todayIso);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+
+  // Etapa 3 — profissionais (dependem da data/hora escolhida).
+  const [professionals, setProfessionals] =
+    useState<IBusinessProfessionals | null>(null);
+  const [professionalsLoading, setProfessionalsLoading] = useState(false);
+  const [professionalsError, setProfessionalsError] = useState(false);
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<
+    number | null
+  >(null);
+
+  // Etapa 4 — dados do cliente.
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerPhoneConfirm, setCustomerPhoneConfirm] = useState("");
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
+
+  // Envio do agendamento.
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
+
+  // Confetes da tela de sucesso (saem de trás do ícone de check).
+  const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
+  const checkIconRef = useRef<HTMLSpanElement>(null);
+
+  // Horário escolhido em ISO ("AAAA-MM-DDTHH:mm:ssZ"), enviado ao buscar
+  // profissionais. Null enquanto faltar data ou hora.
+  const dateStart =
+    selectedDate && selectedTime
+      ? `${selectedDate}T${selectedTime}:00Z`
+      : null;
 
   const hex = toCssHex(business.color);
   const isFirst = currentStep === 1;
   const isLast = currentStep === TOTAL_STEPS;
 
+  // Ao concluir, dispara uma explosão de confetes saindo de trás do ícone.
+  useEffect(() => {
+    if (!submitted) return;
+
+    const timeout = setTimeout(() => {
+      const canvas = confettiCanvasRef.current;
+      const icon = checkIconRef.current;
+      if (!canvas || !icon) return;
+
+      const fire = confetti.create(canvas, { resize: true });
+      const canvasRect = canvas.getBoundingClientRect();
+      const iconRect = icon.getBoundingClientRect();
+
+      // Origem normalizada (0–1) no centro do ícone, relativa ao canvas.
+      const origin = {
+        x: (iconRect.left + iconRect.width / 2 - canvasRect.left) / canvasRect.width,
+        y: (iconRect.top + iconRect.height / 2 - canvasRect.top) / canvasRect.height,
+      };
+
+      fire({
+        particleCount: 140,
+        spread: 100,
+        startVelocity: 45,
+        ticks: 220,
+        origin,
+        colors: [hex, "#34d399", "#fbbf24", "#60a5fa", "#f472b6"],
+      });
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [submitted, hex]);
+
   const goNext = () => setCurrentStep((step) => Math.min(step + 1, TOTAL_STEPS));
   const goBack = () => setCurrentStep((step) => Math.max(step - 1, 1));
+
+  // Busca a agenda uma única vez, ao chegar na etapa 2.
+  useEffect(() => {
+    if (currentStep !== 2 || agenda) return;
+
+    let active = true;
+    setAgendaLoading(true);
+    setAgendaError(false);
+
+    businessService
+      .getAgenda(business.businessId, todayIso)
+      .then((data) => {
+        if (active) setAgenda(data);
+      })
+      .catch(() => {
+        if (active) setAgendaError(true);
+      })
+      .finally(() => {
+        if (active) setAgendaLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentStep, agenda, business.businessId, todayIso]);
+
+  // Busca os profissionais para o horário escolhido ao chegar na etapa 3.
+  // Refaz a requisição sempre que o horário (dateStart) muda.
+  useEffect(() => {
+    if (currentStep !== 3 || !dateStart) return;
+
+    let active = true;
+    setProfessionalsLoading(true);
+    setProfessionalsError(false);
+
+    businessService
+      .getProfessionals(business.businessId, dateStart)
+      .then((data) => {
+        if (active) setProfessionals(data);
+      })
+      .catch(() => {
+        if (active) setProfessionalsError(true);
+      })
+      .finally(() => {
+        if (active) setProfessionalsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentStep, dateStart, business.businessId]);
 
   // Define a quantidade de um serviço na seleção (insere ou atualiza).
   const upsertService = (service: IProvidedService, quantity: number) => {
@@ -53,6 +191,51 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
     );
   };
 
+  // Trocar de dia reseta o horário e o profissional (disponibilidade muda).
+  const handleSelectDate = (date: string) => {
+    setSelectedDate(date);
+    setSelectedTime(null);
+    setSelectedProfessionalId(null);
+  };
+
+  // Trocar o horário invalida o profissional escolhido.
+  const handleSelectTime = (time: string) => {
+    setSelectedTime(time);
+    setSelectedProfessionalId(null);
+  };
+
+  // Monta o payload e cria o agendamento (POST /schedule).
+  const handleSubmit = () => {
+    if (!selectedDate || !selectedTime || selectedProfessionalId === null) {
+      return;
+    }
+
+    const payload: IScheduleRequest = {
+      customerName: customerName.trim(),
+      customerCellphone: customerPhone.replace(/\D/g, ""),
+      startDateTime: `${selectedDate}T${selectedTime}`,
+      servicesSelected: selectedServices.map((item) => ({
+        id: item.service.id,
+        quantity: item.quantity,
+      })),
+      estimatedTime: selectedServices.reduce(
+        (sum, item) => sum + item.service.duration * item.quantity,
+        0,
+      ),
+      professionalId: selectedProfessionalId,
+      businessId: business.businessId,
+    };
+
+    setSubmitting(true);
+    setSubmitError(false);
+
+    scheduleService
+      .create(payload)
+      .then(() => setSubmitted(true))
+      .catch(() => setSubmitError(true))
+      .finally(() => setSubmitting(false));
+  };
+
   const selectedCount = selectedServices.reduce(
     (sum, item) => sum + item.quantity,
     0,
@@ -63,13 +246,57 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   );
   const hasSelection = selectedCount > 0;
 
-  const activeStep = SCHEDULING_STEPS[currentStep - 1];
+  // Habilitação do "Continuar" por etapa:
+  // - etapa 2: exige data e horário;
+  // - etapa 3: exige um profissional;
+  // - etapa 4: exige nome, celular válido, confirmação igual e consentimento.
+  const continueDisabled =
+    (currentStep === 2 && !(selectedDate !== null && selectedTime !== null)) ||
+    (currentStep === 3 && selectedProfessionalId === null) ||
+    (currentStep === 4 &&
+      !(
+        isValidFullName(customerName) &&
+        isValidPhone(customerPhone) &&
+        customerPhoneConfirm === customerPhone &&
+        whatsappConsent
+      ));
+
+  // Após o sucesso, substitui o formulário pela confirmação.
+  if (submitted) {
+    return (
+      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center animate-fade-in">
+        {/* Canvas dos confetes — atrás do conteúdo (ícone/textos com z-10). */}
+        <canvas
+          ref={confettiCanvasRef}
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        />
+
+        <span ref={checkIconRef} className="relative z-10">
+          <CircleCheckBig
+            className="h-24 w-24"
+            style={{ color: hex }}
+            aria-hidden="true"
+          />
+        </span>
+        <h2 className="relative z-10 mt-6 text-2xl font-bold text-slate-900">
+          Agendamento Concluído!
+        </h2>
+        <p className="relative z-10 mt-3 text-slate-500">
+          Você receberá uma mensagem via WhatsApp assim que o estabelecimento
+          confirmar o seu agendamento!
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-5 py-6">
       <StepIndicator currentStep={currentStep} color={business.color} />
 
-      <div className="mt-8 flex min-h-0 flex-1 flex-col">
+      <div
+        key={currentStep}
+        className="mt-8 flex min-h-0 flex-1 flex-col animate-fade-in"
+      >
         {currentStep === 1 && (
           <ServiceStep
             services={business.providedServices}
@@ -82,21 +309,40 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
 
         {currentStep === 2 && (
           <DateTimeStep
-            businessId={business.businessId}
+            agenda={agenda}
+            loading={agendaLoading}
+            error={agendaError}
             color={business.color}
+            selectedDate={selectedDate}
+            selectedTime={selectedTime}
+            onSelectDate={handleSelectDate}
+            onSelectTime={handleSelectTime}
           />
         )}
 
-        {currentStep > 2 && (
-          // Placeholder das demais etapas — serão substituídas pelos componentes reais.
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              {activeStep.label}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Etapa {currentStep} de {TOTAL_STEPS} · conteúdo em construção.
-            </p>
-          </div>
+        {currentStep === 3 && (
+          <ProfessionalStep
+            data={professionals}
+            loading={professionalsLoading}
+            error={professionalsError}
+            color={business.color}
+            selectedProfessionalId={selectedProfessionalId}
+            onSelect={setSelectedProfessionalId}
+          />
+        )}
+
+        {currentStep === 4 && (
+          <PersonalDataStep
+            name={customerName}
+            phone={customerPhone}
+            phoneConfirm={customerPhoneConfirm}
+            consent={whatsappConsent}
+            color={business.color}
+            onChangeName={setCustomerName}
+            onChangePhone={setCustomerPhone}
+            onChangePhoneConfirm={setCustomerPhoneConfirm}
+            onToggleConsent={setWhatsappConsent}
+          />
         )}
       </div>
 
@@ -124,22 +370,48 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
           </div>
         )
       ) : (
-        <div className="mt-6 flex gap-3">
-          <button
-            type="button"
-            onClick={goBack}
-            className="flex-1 rounded-xl border border-slate-200 py-3.5 font-semibold text-slate-700 transition active:scale-[0.98]"
-          >
-            Voltar
-          </button>
-          <button
-            type="button"
-            onClick={isLast ? undefined : goNext}
-            className="flex-1 rounded-xl py-3.5 font-semibold text-white transition active:scale-[0.98]"
-            style={{ backgroundColor: hex }}
-          >
-            {isLast ? "Confirmar agendamento" : "Continuar"}
-          </button>
+        <div className="mt-6">
+          {submitError && (
+            <p className="mb-3 text-center text-sm text-red-500">
+              Não foi possível concluir o agendamento. Tente novamente.
+            </p>
+          )}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={goBack}
+              disabled={submitting}
+              className="flex-1 rounded-xl border border-slate-200 py-3.5 font-semibold text-slate-700 transition active:scale-[0.98] disabled:opacity-40"
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              onClick={isLast ? handleSubmit : goNext}
+              disabled={continueDisabled || submitting}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 font-semibold text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+              style={{ backgroundColor: hex }}
+            >
+              {isLast ? (
+                submitting ? (
+                  <>
+                    <Loader2
+                      className="h-5 w-5 animate-spin"
+                      aria-hidden="true"
+                    />
+                    Agendando…
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-5 w-5" aria-hidden="true" />
+                    Agendar
+                  </>
+                )
+              ) : (
+                "Continuar"
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>

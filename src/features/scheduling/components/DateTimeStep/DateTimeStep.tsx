@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import { businessService, type IAgenda } from "../../../business";
+import type { IAgenda } from "../../../business";
 import {
   addDays,
   getReadableForeground,
@@ -15,10 +15,22 @@ import {
 } from "../../availability";
 
 export interface DateTimeStepProps {
-  /** Id da loja, usado na requisição da agenda. */
-  businessId: number;
+  /** Agenda da loja (ocupações, dias fechados, horário de funcionamento). */
+  agenda: IAgenda | null;
+  /** Indica se a agenda está sendo carregada. */
+  loading: boolean;
+  /** Indica se houve erro ao carregar a agenda. */
+  error: boolean;
   /** Cor do estabelecimento aplicada à seleção. */
   color: string;
+  /** Data selecionada ("AAAA-MM-DD") ou null. */
+  selectedDate: string | null;
+  /** Horário selecionado ("HH:mm") ou null. */
+  selectedTime: string | null;
+  /** Chamado ao escolher uma data. */
+  onSelectDate: (date: string) => void;
+  /** Chamado ao escolher um horário. */
+  onSelectTime: (time: string) => void;
 }
 
 /** Quantos dias o seletor exibe a partir de hoje. */
@@ -27,46 +39,24 @@ const VISIBLE_DAYS = 14;
 /**
  * Etapa 2 do agendamento: escolha de data e hora.
  *
- * Ao montar, busca a agenda da loja (a partir de hoje) e monta um seletor de
- * dias. Para o dia escolhido, exibe os horários livres agrupados por período,
- * descontando os intervalos ocupados e o horário de funcionamento.
+ * Componente apresentacional — a agenda e a seleção vêm do `SchedulingForm`,
+ * que mantém o estado entre as etapas. Para o dia escolhido, exibe os horários
+ * livres agrupados por período, descontando os intervalos ocupados.
  */
-export function DateTimeStep({ businessId, color }: DateTimeStepProps) {
+export function DateTimeStep({
+  agenda,
+  loading,
+  error,
+  color,
+  selectedDate,
+  selectedTime,
+  onSelectDate,
+  onSelectTime,
+}: DateTimeStepProps) {
   const hex = toCssHex(color);
   const foreground = getReadableForeground(hex);
 
   const today = useMemo(() => new Date(), []);
-  const todayIso = useMemo(() => toISODate(today), [today]);
-
-  const [agenda, setAgenda] = useState<IAgenda | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(todayIso);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError(false);
-
-    businessService
-      .getAgenda(businessId, todayIso)
-      .then((data) => {
-        if (active) setAgenda(data);
-      })
-      .catch(() => {
-        if (active) setError(true);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [businessId, todayIso]);
-
-  // Dias exibidos no seletor, a partir de hoje.
   const days = useMemo(
     () => Array.from({ length: VISIBLE_DAYS }, (_, i) => addDays(today, i)),
     [today],
@@ -79,7 +69,7 @@ export function DateTimeStep({ businessId, color }: DateTimeStepProps) {
 
   // Horários livres do dia selecionado, agrupados por período.
   const availability = useMemo(() => {
-    if (!agenda || closedDates.has(selectedDate)) {
+    if (!agenda || !selectedDate || closedDates.has(selectedDate)) {
       return { manha: [], tarde: [], noite: [] };
     }
     const busyPeriods =
@@ -105,7 +95,7 @@ export function DateTimeStep({ businessId, color }: DateTimeStepProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col animate-fade-in">
       <h2 className="text-lg font-bold text-slate-900">Qual a melhor data?</h2>
 
       {/* Seletor de datas (scroll horizontal). */}
@@ -122,10 +112,7 @@ export function DateTimeStep({ businessId, color }: DateTimeStepProps) {
               key={iso}
               type="button"
               disabled={isClosed}
-              onClick={() => {
-                setSelectedDate(iso);
-                setSelectedTime(null);
-              }}
+              onClick={() => onSelectDate(iso)}
               style={isActive ? { backgroundColor: hex, color: foreground } : undefined}
               className={`flex w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 py-3.5 transition ${
                 isActive
@@ -137,9 +124,7 @@ export function DateTimeStep({ businessId, color }: DateTimeStepProps) {
             >
               <span
                 className="text-xs"
-                style={
-                  isActive || isClosed ? undefined : { color: hex }
-                }
+                style={isActive || isClosed ? undefined : { color: hex }}
               >
                 {getWeekdayShort(day)}
               </span>
@@ -172,7 +157,7 @@ export function DateTimeStep({ businessId, color }: DateTimeStepProps) {
                       <button
                         key={time}
                         type="button"
-                        onClick={() => setSelectedTime(time)}
+                        onClick={() => onSelectTime(time)}
                         style={
                           isActive
                             ? { backgroundColor: hex, color: foreground }

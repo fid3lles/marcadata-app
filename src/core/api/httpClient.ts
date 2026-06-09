@@ -31,4 +31,19 @@ export const httpClient = {
 
     return (await response.json()) as T;
   },
+
+  async post<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
+    const response = await fetch(`${API_BASE_PATH}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      ...init,
+    });
+
+    if (!response.ok) {
+      throw new HttpError(response.status, response.statusText);
+    }
+
+    return (await response.json()) as T;
+  },
 };

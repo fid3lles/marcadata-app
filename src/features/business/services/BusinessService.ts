@@ -1,6 +1,7 @@
 import { httpClient } from "../../../core/api";
 import type { IBusiness } from "../types/business.types";
 import type { IAgenda } from "../types/agenda.types";
+import type { IBusinessProfessionals } from "../types/professional.types";
 
 /**
  * Serviço responsável por consumir os endpoints de estabelecimento (loja).
@@ -28,6 +29,23 @@ export class BusinessService {
   getAgenda(businessId: number, date: string): Promise<IAgenda> {
     return httpClient.get<IAgenda>(
       `/business/${businessId}/agenda?date=${date}`,
+    );
+  }
+
+  /**
+   * Busca os profissionais disponíveis (e indisponíveis) para um horário.
+   *
+   * GET {@link API_BASE_PATH}/business/:businessId/agenda?datestart=AAAA-MM-DDTHH:mm:ssZ
+   *
+   * @param businessId Id da loja.
+   * @param dateStart Data e horário escolhidos, no formato ISO (ex.: "2026-06-09T10:00:00Z").
+   */
+  getProfessionals(
+    businessId: number,
+    dateStart: string,
+  ): Promise<IBusinessProfessionals> {
+    return httpClient.get<IBusinessProfessionals>(
+      `/business/${businessId}/agenda?datestart=${encodeURIComponent(dateStart)}`,
     );
   }
 }

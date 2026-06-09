@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loading, Layout } from "./shared/components";
-import { businessService, type IBusiness } from "./features/business";
+import {
+  businessService,
+  BusinessInfo,
+  type IBusiness,
+} from "./features/business";
 import { SchedulingForm } from "./features/scheduling";
 
 const MISSING_ID_MESSAGE = "Informe o id da loja na URL. Exemplo: ?id=1";
@@ -64,7 +68,11 @@ function App() {
       )}
 
       {business && (
-        <Layout color={business.color} businessName={business.businessName}>
+        <Layout
+          color={business.color}
+          businessName={business.businessName}
+          headerInfo={<BusinessInfo business={business} />}
+        >
           <SchedulingForm business={business} />
         </Layout>
       )}

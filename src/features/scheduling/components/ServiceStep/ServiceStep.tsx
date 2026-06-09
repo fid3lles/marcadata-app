@@ -78,9 +78,17 @@ export function ServiceStep({
                 style={itemSelected ? { borderColor: hex } : undefined}
                 className="flex w-full gap-3 rounded-xl border-2 border-slate-100 bg-white p-3 text-left shadow-sm transition active:scale-[0.99]"
               >
-                {/* Placeholder de imagem (a API ainda não retorna a URL). */}
-                <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-300">
-                  <ImageOff className="h-7 w-7" aria-hidden="true" />
+                {/* Imagem do serviço; sem URL, mostra o ícone de fallback. */}
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100 text-slate-300">
+                  {service.imageHref ? (
+                    <img
+                      src={service.imageHref}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImageOff className="h-7 w-7" aria-hidden="true" />
+                  )}
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col">
