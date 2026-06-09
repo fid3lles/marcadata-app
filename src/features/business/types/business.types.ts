@@ -14,6 +14,7 @@ export interface IAddress {
 export interface IProvidedService {
   id: number;
   name: string;
+  description: string;
   /** Preço em reais. */
   price: number;
   /** Duração do serviço em minutos. */

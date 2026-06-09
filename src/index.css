@@ -4,6 +4,10 @@
    Tokens de cor reutilizáveis via @theme — disponíveis como utilitários
    do Tailwind (ex.: bg-brand-600, text-brand-700). */
 @theme {
+  /* Montserrat como fonte padrão de todo o app (substitui o --font-sans).
+     Tudo herda automaticamente; ainda disponível como `font-sans`. */
+  --font-sans: "Montserrat", system-ui, sans-serif;
+
   --color-brand-50: #eef6ff;
   --color-brand-100: #d9eaff;
   --color-brand-200: #bcd9ff;
@@ -38,7 +42,7 @@ html {
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* A fonte é herdada do `html` (Montserrat, via --font-sans). */
   /* Respeita áreas seguras de celulares com notch. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
