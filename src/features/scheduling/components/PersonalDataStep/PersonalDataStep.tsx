@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import { toCssHex } from "../../../../shared/utils";
 import {
@@ -71,6 +71,7 @@ export function PersonalDataStep({
           placeholder="11 91234-3296"
           autoComplete="tel"
           activeColor={hex}
+          complete={isValidPhone(phone)}
           error={phoneInvalid ? "Informe um número válido com DDD." : undefined}
         />
 
@@ -84,6 +85,7 @@ export function PersonalDataStep({
           }
           placeholder="11 91234-3296"
           activeColor={hex}
+          complete={isValidPhone(phoneConfirm)}
           error={phoneMismatch ? "Os números não coincidem." : undefined}
         />
 
@@ -116,17 +118,37 @@ interface FieldProps extends ComponentProps<"input"> {
   activeColor: string;
   /** Mensagem de erro exibida abaixo do campo. */
   error?: string;
+  /**
+   * Quando o valor fica completo, o campo perde o foco (some o teclado),
+   * para o usuário tocar no próximo.
+   */
+  complete?: boolean;
 }
 
 /** Campo de texto que destaca a borda com a cor da loja enquanto está focado. */
-function Field({ label, activeColor, error, ...inputProps }: FieldProps) {
+function Field({
+  label,
+  activeColor,
+  error,
+  complete,
+  ...inputProps
+}: FieldProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
+
+  // Ao ficar completo (e ainda focado), tira o foco para esconder o teclado.
+  useEffect(() => {
+    if (complete && document.activeElement === inputRef.current) {
+      inputRef.current?.blur();
+    }
+  }, [complete]);
 
   return (
     <label className="block">
       <span className="text-sm font-medium text-slate-700">{label}</span>
       <input
         {...inputProps}
+        ref={inputRef}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={focused ? { borderColor: activeColor } : undefined}
