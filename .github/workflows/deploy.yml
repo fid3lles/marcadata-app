@@ -21,6 +21,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Declara o environment para que o build leia a variável API_BASE_PATH,
+    # que está escopada ao environment github-pages.
+    environment: github-pages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
