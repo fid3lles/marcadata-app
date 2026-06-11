@@ -7,7 +7,8 @@ import {
 } from "../../features/business";
 import { SchedulingForm } from "../../features/scheduling";
 
-const MISSING_ID_MESSAGE = "Informe o id da loja na URL. Exemplo: ?id=1";
+const MISSING_ID_MESSAGE =
+  "Informe o slug da loja na URL. Exemplo: ?id=shanttcabeleireiros";
 
 /**
  * Página principal: carrega a loja a partir do `?id=` e renderiza o fluxo de
@@ -15,28 +16,27 @@ const MISSING_ID_MESSAGE = "Informe o id da loja na URL. Exemplo: ?id=1";
  */
 export function HomePage() {
   // Recupera o id da loja via query param (ex.: ?id=1). Estável na sessão.
-  const businessId = useMemo(
+  // Slug da loja via query param (ex.: ?id=shantt). Estável na sessão.
+  const slug = useMemo(
     () => new URLSearchParams(window.location.search).get("id"),
     [],
   );
 
-  // Sem id não há o que buscar: já começa fora do loading, com a mensagem.
-  const [loadingVisible, setLoadingVisible] = useState(
-    () => businessId !== null,
-  );
+  // Sem slug não há o que buscar: já começa fora do loading, com a mensagem.
+  const [loadingVisible, setLoadingVisible] = useState(() => slug !== null);
   const [business, setBusiness] = useState<IBusiness | null>(null);
   const [error, setError] = useState<string | null>(() =>
-    businessId === null ? MISSING_ID_MESSAGE : null,
+    slug === null ? MISSING_ID_MESSAGE : null,
   );
 
   useEffect(() => {
-    if (businessId === null) return;
+    if (slug === null) return;
 
     // Evita atualizar o estado se o componente desmontar antes da resposta.
     let active = true;
 
     businessService
-      .getById(Number(businessId))
+      .getBySlug(slug)
       .then((data) => {
         // Não desliga o loading aqui: ele anima a revelação da cor e só some
         // ao fim da animação, via onRevealComplete.
@@ -52,7 +52,7 @@ export function HomePage() {
     return () => {
       active = false;
     };
-  }, [businessId]);
+  }, [slug]);
 
   return (
     <>

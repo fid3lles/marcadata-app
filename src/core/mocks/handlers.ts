@@ -32,9 +32,9 @@ const PROFESSIONALS: IProfessional[] = [
   },
 ];
 
-/** Lojas mockadas, indexadas pelo businessId. */
+/** Lojas mockadas, indexadas pelo slug. */
 const BUSINESSES: Record<string, IBusiness> = {
-  "1": {
+  shanttcabeleireiros: {
     businessId: 1,
     businessName: "Shantt Cabeleireiros",
     color: "8340EC",
@@ -99,7 +99,7 @@ const BUSINESSES: Record<string, IBusiness> = {
     ],
   },
 
-  "2": {
+  aumiau: {
     businessId: 2,
     businessName: "AuMiau Petshop & Banho",
     color: "fce303",
@@ -194,8 +194,9 @@ export const handlers = [
     // Delay fixo para simular latência de rede.
     await delay(3000);
 
-    // Retorna a loja correspondente ao id; cai na primeira como fallback.
-    const business = BUSINESSES[String(params.businessId)] ?? BUSINESSES["1"];
+    // Retorna a loja correspondente ao slug; cai na primeira como fallback.
+    const business =
+      BUSINESSES[String(params.businessId)] ?? BUSINESSES.shanttcabeleireiros;
 
     return HttpResponse.json(business);
   }),

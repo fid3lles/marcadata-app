@@ -8,14 +8,14 @@ import type { IBusinessProfessionals } from "../types/professional.types";
  */
 export class BusinessService {
   /**
-   * Busca os detalhes de uma loja.
+   * Busca os detalhes de uma loja pelo seu slug.
    *
-   * GET {@link API_BASE_PATH}/business/:businessId
+   * GET {@link API_BASE_PATH}/business/:slug
    *
-   * @param businessId Id da loja.
+   * @param slug Slug da loja (string).
    */
-  getById(businessId: number): Promise<IBusiness> {
-    return httpClient.get<IBusiness>(`/business/${businessId}`);
+  getBySlug(slug: string): Promise<IBusiness> {
+    return httpClient.get<IBusiness>(`/business/${slug}`);
   }
 
   /**
