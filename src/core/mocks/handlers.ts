@@ -189,7 +189,7 @@ const BUSINESSES: Record<string, IBusiness> = {
  * de cada feature e faça o spread neste array).
  */
 export const handlers = [
-  // Detalhes da loja: GET /scheduler/core/api/v1/business/:businessId
+  // Detalhes da loja: GET /api/business/:businessId
   http.get(`${API_BASE_PATH}/business/:businessId`, async ({ params }) => {
     // Delay fixo para simular latência de rede.
     await delay(3000);
@@ -201,7 +201,7 @@ export const handlers = [
     return HttpResponse.json(business);
   }),
 
-  // Agenda da loja: GET /scheduler/core/api/v1/business/:businessId/agenda
+  // Agenda da loja: GET /api/business/:businessId/agenda
   // - ?datestart=AAAA-MM-DDTHH:mm:ssZ  → profissionais disponíveis no horário
   // - ?date=AAAA-MM-DD                 → ocupações/dias fechados/funcionamento
   http.get(
@@ -262,7 +262,7 @@ export const handlers = [
     },
   ),
 
-  // Criação de agendamento: POST /scheduler/core/api/v1/schedule
+  // Criação de agendamento: POST /api/schedule
   http.post(`${API_BASE_PATH}/schedule`, async () => {
     await delay(1200);
 
