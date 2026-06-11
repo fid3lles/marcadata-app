@@ -4,8 +4,9 @@ import { HomePage, NotFound } from "./pages";
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      {/* Catch-all: qualquer rota desconhecida cai na página de não encontrado. */}
+      {/* Loja pelo slug no path (ex.: /shanttcabeleireiros). */}
+      <Route path="/:slug" element={<HomePage />} />
+      {/* Raiz (sem slug) e qualquer rota desconhecida caem na página 404. */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { Loading, Layout } from "../../shared/components";
 import {
   businessService,
@@ -7,30 +8,20 @@ import {
 } from "../../features/business";
 import { SchedulingForm } from "../../features/scheduling";
 
-const MISSING_ID_MESSAGE =
-  "Informe o slug da loja na URL. Exemplo: ?id=shanttcabeleireiros";
-
 /**
- * Página principal: carrega a loja a partir do `?id=` e renderiza o fluxo de
- * agendamento dentro do Layout.
+ * Página principal: carrega a loja a partir do slug no path (/:slug) e
+ * renderiza o fluxo de agendamento dentro do Layout.
  */
 export function HomePage() {
-  // Recupera o id da loja via query param (ex.: ?id=1). Estável na sessão.
-  // Slug da loja via query param (ex.: ?id=shantt). Estável na sessão.
-  const slug = useMemo(
-    () => new URLSearchParams(window.location.search).get("id"),
-    [],
-  );
+  // Slug da loja vindo do path da rota (ex.: /shanttcabeleireiros).
+  const { slug } = useParams();
 
-  // Sem slug não há o que buscar: já começa fora do loading, com a mensagem.
-  const [loadingVisible, setLoadingVisible] = useState(() => slug !== null);
+  const [loadingVisible, setLoadingVisible] = useState(() => Boolean(slug));
   const [business, setBusiness] = useState<IBusiness | null>(null);
-  const [error, setError] = useState<string | null>(() =>
-    slug === null ? MISSING_ID_MESSAGE : null,
-  );
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (slug === null) return;
+    if (!slug) return;
 
     // Evita atualizar o estado se o componente desmontar antes da resposta.
     let active = true;
