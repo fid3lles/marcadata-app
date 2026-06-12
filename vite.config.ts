@@ -4,13 +4,6 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// No GitHub Actions o site é servido em https://<user>.github.io/<repo>/,
-// então o base precisa ser "/<repo>/". Derivamos do GITHUB_REPOSITORY
-// ("owner/repo") para funcionar sem depender do nome fixo do repositório.
-// Localmente (e em outros hosts) o base continua "/".
-const repository = process.env.GITHUB_REPOSITORY?.split("/")[1];
-const base = process.env.GITHUB_ACTIONS && repository ? `/${repository}/` : "/";
-
 /**
  * Gera um 404.html como cópia do index.html após o build. Hosts estáticos
  * como o GitHub Pages servem o 404.html para qualquer caminho desconhecido,
@@ -36,6 +29,7 @@ function spaFallback(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  base,
+  // Servido na raiz (custom domain hom.marcadata.com.br).
+  base: "/",
   plugins: [react(), tailwindcss(), spaFallback()],
 });
