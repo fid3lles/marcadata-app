@@ -26,7 +26,7 @@ export function Header({ color, businessName, info }: HeaderProps) {
   return (
     <>
       <header
-        className="flex items-center justify-between gap-3 rounded-b-[13px] px-5 pb-6 pt-6 text-white"
+        className="flex items-center justify-between gap-3 rounded-b-[13px] px-5 pb-4 pt-4 text-white"
         style={{ backgroundColor: toCssHex(color) }}
       >
         <div className="min-w-0">

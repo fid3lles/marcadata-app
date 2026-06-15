@@ -5,15 +5,14 @@ import whatsappIcon from "../../../../assets/whatsapp_icon.svg";
 import { formatCurrency, toCssHex, toISODate } from "../../../../shared/utils";
 import {
   businessService,
-  type IAgenda,
   type IBusiness,
   type IBusinessProfessionals,
+  type IProfessionalAgenda,
   type IProvidedService,
 } from "../../../business";
 import { StepIndicator } from "../StepIndicator";
 import { ServiceStep } from "../ServiceStep";
 import { DateTimeStep } from "../DateTimeStep";
-import { ProfessionalStep } from "../ProfessionalStep";
 import { PersonalDataStep } from "../PersonalDataStep";
 import { TOTAL_STEPS } from "../../steps";
 import { isValidFullName, isValidPhone } from "../../personalData";
@@ -26,14 +25,11 @@ export interface SchedulingFormProps {
 }
 
 /**
- * Formulário de agendamento em 4 etapas. Compõe o miolo da tela:
- * indicador de progresso no topo, conteúdo da etapa atual no meio e
- * navegação embaixo.
+ * Formulário de agendamento em 3 etapas:
+ * 1) serviços; 2) data → profissional → horário; 3) dados do cliente.
  *
- * O estado de todas as etapas (serviços, data/hora, agenda) vive aqui, então
- * o usuário pode ir e voltar livremente sem perder o que já selecionou.
- *
- * O conteúdo das etapas 3-4 ainda é placeholder.
+ * Todo o estado vive aqui, então o usuário pode ir e voltar sem perder o que
+ * já selecionou. A agenda de cada profissional é cacheada por (profissional, dia).
  */
 export function SchedulingForm({ business }: SchedulingFormProps) {
   const [currentStep, setCurrentStep] = useState(1);
@@ -43,15 +39,9 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
     [],
   );
 
-  // Etapa 2 — data/hora e agenda.
+  // Etapa 2 — data, profissional e horário.
   const todayIso = useMemo(() => toISODate(new Date()), []);
-  const [agenda, setAgenda] = useState<IAgenda | null>(null);
-  const [agendaLoading, setAgendaLoading] = useState(false);
-  const [agendaError, setAgendaError] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(todayIso);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-
-  // Etapa 3 — profissionais (dependem da data/hora escolhida).
   const [professionals, setProfessionals] =
     useState<IBusinessProfessionals | null>(null);
   const [professionalsLoading, setProfessionalsLoading] = useState(false);
@@ -59,8 +49,15 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<
     number | null
   >(null);
+  // Agendas por (profissionalId-data) já consultadas, para não refazer requisição.
+  const [agendaCache, setAgendaCache] = useState<
+    Record<string, IProfessionalAgenda>
+  >({});
+  const [agendaLoading, setAgendaLoading] = useState(false);
+  const [agendaError, setAgendaError] = useState(false);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
-  // Etapa 4 — dados do cliente.
+  // Etapa 3 — dados do cliente.
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerPhoneConfirm, setCustomerPhoneConfirm] = useState("");
@@ -76,16 +73,16 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
   const checkIconRef = useRef<HTMLSpanElement>(null);
 
-  // Horário escolhido em ISO ("AAAA-MM-DDTHH:mm:ssZ"), enviado ao buscar
-  // profissionais. Null enquanto faltar data ou hora.
-  const dateStart =
-    selectedDate && selectedTime
-      ? `${selectedDate}T${selectedTime}:00Z`
-      : null;
-
   const hex = toCssHex(business.color);
   const isFirst = currentStep === 1;
   const isLast = currentStep === TOTAL_STEPS;
+
+  // Agenda do profissional para a data atual (do cache, se existir).
+  const agendaKey =
+    selectedProfessionalId !== null && selectedDate
+      ? `${selectedProfessionalId}-${selectedDate}`
+      : null;
+  const professionalAgenda = agendaKey ? (agendaCache[agendaKey] ?? null) : null;
 
   // Ao concluir, dispara uma explosão de confetes saindo de trás do ícone.
   useEffect(() => {
@@ -100,7 +97,6 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
       const canvasRect = canvas.getBoundingClientRect();
       const iconRect = icon.getBoundingClientRect();
 
-      // Origem normalizada (0–1) no centro do ícone, relativa ao canvas.
       const origin = {
         x: (iconRect.left + iconRect.width / 2 - canvasRect.left) / canvasRect.width,
         y: (iconRect.top + iconRect.height / 2 - canvasRect.top) / canvasRect.height,
@@ -122,42 +118,16 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   const goNext = () => setCurrentStep((step) => Math.min(step + 1, TOTAL_STEPS));
   const goBack = () => setCurrentStep((step) => Math.max(step - 1, 1));
 
-  // Busca a agenda uma única vez, ao chegar na etapa 2.
+  // Busca os profissionais da loja uma única vez, ao chegar na etapa 2.
   useEffect(() => {
-    if (currentStep !== 2 || agenda) return;
-
-    let active = true;
-    setAgendaLoading(true);
-    setAgendaError(false);
-
-    businessService
-      .getAgenda(business.businessId, todayIso)
-      .then((data) => {
-        if (active) setAgenda(data);
-      })
-      .catch(() => {
-        if (active) setAgendaError(true);
-      })
-      .finally(() => {
-        if (active) setAgendaLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [currentStep, agenda, business.businessId, todayIso]);
-
-  // Busca os profissionais para o horário escolhido ao chegar na etapa 3.
-  // Refaz a requisição sempre que o horário (dateStart) muda.
-  useEffect(() => {
-    if (currentStep !== 3 || !dateStart) return;
+    if (currentStep !== 2 || professionals) return;
 
     let active = true;
     setProfessionalsLoading(true);
     setProfessionalsError(false);
 
     businessService
-      .getProfessionals(business.businessId, dateStart)
+      .getProfessionals(business.businessId, `${todayIso}T00:00:00Z`)
       .then((data) => {
         if (active) setProfessionals(data);
       })
@@ -171,7 +141,47 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
     return () => {
       active = false;
     };
-  }, [currentStep, dateStart, business.businessId]);
+  }, [currentStep, professionals, business.businessId, todayIso]);
+
+  // Busca a agenda do profissional para a data escolhida (com cache).
+  useEffect(() => {
+    if (currentStep !== 2 || selectedProfessionalId === null || !selectedDate) {
+      return;
+    }
+
+    const key = `${selectedProfessionalId}-${selectedDate}`;
+    if (agendaCache[key]) return; // já consultado
+
+    let active = true;
+    setAgendaLoading(true);
+    setAgendaError(false);
+
+    businessService
+      .getProfessionalAgenda(
+        business.businessId,
+        selectedProfessionalId,
+        selectedDate,
+      )
+      .then((data) => {
+        if (active) setAgendaCache((cache) => ({ ...cache, [key]: data }));
+      })
+      .catch(() => {
+        if (active) setAgendaError(true);
+      })
+      .finally(() => {
+        if (active) setAgendaLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    currentStep,
+    selectedProfessionalId,
+    selectedDate,
+    business.businessId,
+    agendaCache,
+  ]);
 
   // Define a quantidade de um serviço na seleção (insere ou atualiza).
   const upsertService = (service: IProvidedService, quantity: number) => {
@@ -193,17 +203,22 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
     );
   };
 
-  // Trocar de dia reseta o horário e o profissional (disponibilidade muda).
+  // Trocar de dia reseta o horário (mantém o profissional; a agenda recarrega).
   const handleSelectDate = (date: string) => {
     setSelectedDate(date);
     setSelectedTime(null);
-    setSelectedProfessionalId(null);
   };
 
-  // Trocar o horário invalida o profissional escolhido.
-  const handleSelectTime = (time: string) => {
-    setSelectedTime(time);
+  // Trocar o profissional reseta o horário (os slots dele são outros).
+  const handleSelectProfessional = (id: number) => {
+    setSelectedProfessionalId(id);
+    setSelectedTime(null);
+  };
+
+  // "Escolher outro": volta ao carrossel de profissionais.
+  const handleClearProfessional = () => {
     setSelectedProfessionalId(null);
+    setSelectedTime(null);
   };
 
   // Monta o payload e cria o agendamento (POST /schedule).
@@ -304,14 +319,17 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   );
   const hasSelection = selectedCount > 0;
 
-  // Habilitação do "Continuar" por etapa:
-  // - etapa 2: exige data e horário;
-  // - etapa 3: exige um profissional;
-  // - etapa 4: exige nome, celular válido, confirmação igual e consentimento.
+  // Habilitação do "Continuar"/"Agendar" por etapa:
+  // - etapa 2: exige data, profissional e horário;
+  // - etapa 3: exige nome, celular válido, confirmação igual e consentimento.
   const continueDisabled =
-    (currentStep === 2 && !(selectedDate !== null && selectedTime !== null)) ||
-    (currentStep === 3 && selectedProfessionalId === null) ||
-    (currentStep === 4 &&
+    (currentStep === 2 &&
+      !(
+        selectedDate !== null &&
+        selectedProfessionalId !== null &&
+        selectedTime !== null
+      )) ||
+    (currentStep === 3 &&
       !(
         isValidFullName(customerName) &&
         isValidPhone(customerPhone) &&
@@ -395,12 +413,12 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-5 py-6">
+    <div className="flex min-h-0 flex-1 flex-col px-5 pb-6 pt-4">
       <StepIndicator currentStep={currentStep} color={business.color} />
 
       <div
         key={currentStep}
-        className="mt-8 flex min-h-0 flex-1 flex-col animate-fade-in"
+        className="mt-5 flex min-h-0 flex-1 flex-col animate-fade-in"
       >
         {currentStep === 1 && (
           <ServiceStep
@@ -414,29 +432,24 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
 
         {currentStep === 2 && (
           <DateTimeStep
-            agenda={agenda}
-            loading={agendaLoading}
-            error={agendaError}
             color={business.color}
             selectedDate={selectedDate}
-            selectedTime={selectedTime}
             onSelectDate={handleSelectDate}
-            onSelectTime={handleSelectTime}
+            professionals={professionals}
+            professionalsLoading={professionalsLoading}
+            professionalsError={professionalsError}
+            selectedProfessionalId={selectedProfessionalId}
+            onSelectProfessional={handleSelectProfessional}
+            onClearProfessional={handleClearProfessional}
+            professionalAgenda={professionalAgenda}
+            agendaLoading={agendaLoading}
+            agendaError={agendaError}
+            selectedTime={selectedTime}
+            onSelectTime={setSelectedTime}
           />
         )}
 
         {currentStep === 3 && (
-          <ProfessionalStep
-            data={professionals}
-            loading={professionalsLoading}
-            error={professionalsError}
-            color={business.color}
-            selectedProfessionalId={selectedProfessionalId}
-            onSelect={setSelectedProfessionalId}
-          />
-        )}
-
-        {currentStep === 4 && (
           <PersonalDataStep
             name={customerName}
             phone={customerPhone}

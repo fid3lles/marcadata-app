@@ -8,6 +8,7 @@ export type {
   IBusyDay,
   IClosedDay,
   ITimeRange,
+  IProfessionalAgenda,
 } from "./types/agenda.types";
 export type {
   IProfessional,

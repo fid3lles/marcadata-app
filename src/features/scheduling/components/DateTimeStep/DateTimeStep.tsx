@@ -1,6 +1,9 @@
 import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
-import type { IAgenda } from "../../../business";
+import { ChevronRight, Loader2 } from "lucide-react";
+import type {
+  IBusinessProfessionals,
+  IProfessionalAgenda,
+} from "../../../business";
 import {
   addDays,
   getReadableForeground,
@@ -13,44 +16,68 @@ import {
   PERIOD_LABELS,
   PERIOD_ORDER,
 } from "../../availability";
+import { ProfessionalCarousel } from "../ProfessionalCarousel";
 
 export interface DateTimeStepProps {
-  /** Agenda da loja (ocupações, dias fechados, horário de funcionamento). */
-  agenda: IAgenda | null;
-  /** Indica se a agenda está sendo carregada. */
-  loading: boolean;
-  /** Indica se houve erro ao carregar a agenda. */
-  error: boolean;
   /** Cor do estabelecimento aplicada à seleção. */
   color: string;
+
   /** Data selecionada ("AAAA-MM-DD") ou null. */
   selectedDate: string | null;
-  /** Horário selecionado ("HH:mm") ou null. */
-  selectedTime: string | null;
   /** Chamado ao escolher uma data. */
   onSelectDate: (date: string) => void;
-  /** Chamado ao escolher um horário. */
+
+  /** Profissionais da loja. */
+  professionals: IBusinessProfessionals | null;
+  professionalsLoading: boolean;
+  professionalsError: boolean;
+  /** Profissional selecionado, ou null. */
+  selectedProfessionalId: number | null;
+  onSelectProfessional: (id: number) => void;
+  /** Limpa a seleção do profissional (volta ao carrossel). */
+  onClearProfessional: () => void;
+
+  /** Agenda do profissional para a data selecionada (ou null). */
+  professionalAgenda: IProfessionalAgenda | null;
+  agendaLoading: boolean;
+  agendaError: boolean;
+  /** Horário selecionado ("HH:mm") ou null. */
+  selectedTime: string | null;
   onSelectTime: (time: string) => void;
 }
 
 /** Quantos dias o seletor exibe a partir de hoje. */
 const VISIBLE_DAYS = 14;
 
+/** Iniciais do primeiro e do último nome, usadas quando não há foto. */
+const initialsOf = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
+  return (first + last).toUpperCase();
+};
+
 /**
- * Etapa 2 do agendamento: escolha de data e hora.
+ * Etapa 2: data → profissional → horário.
  *
- * Componente apresentacional — a agenda e a seleção vêm do `SchedulingForm`,
- * que mantém o estado entre as etapas. Para o dia escolhido, exibe os horários
- * livres agrupados por período, descontando os intervalos ocupados.
+ * Após escolher a data, surge o carrossel de profissionais. Escolhido o
+ * profissional, mostra os horários livres (de 30 em 30 min) da agenda dele
+ * naquele dia. A data permanece no topo para referência.
  */
 export function DateTimeStep({
-  agenda,
-  loading,
-  error,
   color,
   selectedDate,
-  selectedTime,
   onSelectDate,
+  professionals,
+  professionalsLoading,
+  professionalsError,
+  selectedProfessionalId,
+  onSelectProfessional,
+  onClearProfessional,
+  professionalAgenda,
+  agendaLoading,
+  agendaError,
+  selectedTime,
   onSelectTime,
 }: DateTimeStepProps) {
   const hex = toCssHex(color);
@@ -62,47 +89,39 @@ export function DateTimeStep({
     [today],
   );
 
-  const closedDates = useMemo(
-    () => new Set(agenda?.closedDays.map((day) => day.date) ?? []),
-    [agenda],
+  // Profissional selecionado (encontrado na lista) para o card compacto.
+  const selectedProfessional = useMemo(() => {
+    if (selectedProfessionalId === null || !professionals) return null;
+    return (
+      [
+        ...professionals.professionals.available,
+        ...professionals.professionals.unavailable,
+      ].find((p) => p.id === selectedProfessionalId) ?? null
+    );
+  }, [selectedProfessionalId, professionals]);
+
+  // Horários livres (30 em 30) da agenda do profissional, agrupados por período.
+  const availability = useMemo(
+    () =>
+      professionalAgenda
+        ? getAvailableSlots(
+            professionalAgenda.businessHours,
+            professionalAgenda.busy,
+          )
+        : { manha: [], tarde: [], noite: [] },
+    [professionalAgenda],
   );
 
-  // Horários livres do dia selecionado, agrupados por período.
-  const availability = useMemo(() => {
-    if (!agenda || !selectedDate || closedDates.has(selectedDate)) {
-      return { manha: [], tarde: [], noite: [] };
-    }
-    const busyPeriods =
-      agenda.busyDays.find((day) => day.date === selectedDate)?.periods ?? [];
-    return getAvailableSlots(agenda.openTime, busyPeriods);
-  }, [agenda, selectedDate, closedDates]);
-
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center gap-2 text-slate-400">
-        <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-        <span>Carregando horários…</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-amber-800">
-        Não foi possível carregar a agenda.
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-full min-h-0 flex-col animate-fade-in">
-      <h2 className="text-lg font-bold text-slate-900">Qual a melhor data?</h2>
+    <div className="flex h-full min-h-0 flex-col">
+      <h2 className="shrink-0 text-lg font-bold text-slate-900">
+        Qual a melhor data?
+      </h2>
 
-      {/* Seletor de datas (scroll horizontal). */}
-      <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">
+      {/* Seletor de datas (scroll horizontal) — fixo no topo. */}
+      <div className="-mx-1 mt-4 flex shrink-0 gap-2 overflow-x-auto px-1 pb-2">
         {days.map((day) => {
           const iso = toISODate(day);
-          const isClosed = closedDates.has(iso);
           const isActive = iso === selectedDate;
           const dayNumber = String(day.getDate()).padStart(2, "0");
           const monthNumber = String(day.getMonth() + 1).padStart(2, "0");
@@ -111,20 +130,17 @@ export function DateTimeStep({
             <button
               key={iso}
               type="button"
-              disabled={isClosed}
               onClick={() => onSelectDate(iso)}
-              style={isActive ? { backgroundColor: hex, color: foreground } : undefined}
+              style={
+                isActive ? { backgroundColor: hex, color: foreground } : undefined
+              }
               className={`flex w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 py-3.5 transition ${
-                isActive
-                  ? "border-transparent"
-                  : isClosed
-                    ? "border-slate-100 text-slate-300"
-                    : "border-slate-200 text-slate-900"
+                isActive ? "border-transparent" : "border-slate-200 text-slate-900"
               }`}
             >
               <span
                 className="text-xs"
-                style={isActive || isClosed ? undefined : { color: hex }}
+                style={isActive ? undefined : { color: hex }}
               >
                 {getWeekdayShort(day)}
               </span>
@@ -139,49 +155,126 @@ export function DateTimeStep({
         })}
       </div>
 
-      {/* Horários por período (scroll vertical). */}
-      <div className="mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto pb-2">
-        {PERIOD_ORDER.map((period) => {
-          const slots = availability[period];
-          return (
-            <section key={period}>
-              <h3 className="font-bold text-slate-900">
-                {PERIOD_LABELS[period]}
-              </h3>
-
-              {slots.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {slots.map((time) => {
-                    const isActive = time === selectedTime;
-                    return (
-                      <button
-                        key={time}
-                        type="button"
-                        onClick={() => onSelectTime(time)}
-                        style={
-                          isActive
-                            ? { backgroundColor: hex, color: foreground }
-                            : undefined
-                        }
-                        className={`rounded-lg border-2 px-4 py-2 text-sm font-medium transition ${
-                          isActive
-                            ? "border-transparent"
-                            : "border-slate-200 text-slate-700"
-                        }`}
+      {/* Conteúdo abaixo rola verticalmente. */}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+        {selectedDate && (
+          <section className="mt-4 animate-fade-in">
+            <h3 className="font-bold text-slate-900">Quem vai te atender?</h3>
+            <div className="mt-3">
+              {selectedProfessional ? (
+                // Card compacto do profissional escolhido (libera espaço p/ horários).
+                <button
+                  type="button"
+                  onClick={onClearProfessional}
+                  style={{ backgroundColor: hex, color: foreground }}
+                  className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition active:scale-[0.99]"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
+                    {selectedProfessional.imgHref ? (
+                      <img
+                        src={selectedProfessional.imgHref}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="text-sm font-bold"
+                        style={{ color: hex }}
                       >
-                        {time}
-                      </button>
-                    );
-                  })}
-                </div>
+                        {initialsOf(selectedProfessional.name)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold">
+                      {selectedProfessional.name}
+                    </p>
+                    <p className="truncate text-sm opacity-80">
+                      {selectedProfessional.expertise}
+                    </p>
+                  </div>
+
+                  <span className="flex shrink-0 items-center gap-0.5 text-sm font-semibold">
+                    Escolher outro
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </button>
               ) : (
-                <p className="mt-2 text-center text-sm text-slate-400">
-                  Não há horários disponíveis :(
-                </p>
+                <ProfessionalCarousel
+                  data={professionals}
+                  loading={professionalsLoading}
+                  error={professionalsError}
+                  color={color}
+                  selectedProfessionalId={selectedProfessionalId}
+                  onSelect={onSelectProfessional}
+                />
               )}
-            </section>
-          );
-        })}
+            </div>
+          </section>
+        )}
+
+        {selectedProfessionalId !== null && (
+          <section className="mt-6 animate-fade-in">
+            {agendaLoading ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-slate-400">
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                <span>Carregando horários…</span>
+              </div>
+            ) : agendaError ? (
+              <p className="py-8 text-center text-sm text-amber-800">
+                Não foi possível carregar a agenda.
+              </p>
+            ) : professionalAgenda ? (
+              <div className="space-y-5">
+                {PERIOD_ORDER.map((period) => {
+                  const slots = availability[period];
+                  return (
+                    <div key={period}>
+                      <h3 className="font-bold text-slate-900">
+                        {PERIOD_LABELS[period]}
+                      </h3>
+
+                      {slots.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {slots.map((time) => {
+                            const isActive = time === selectedTime;
+                            return (
+                              <button
+                                key={time}
+                                type="button"
+                                onClick={() => onSelectTime(time)}
+                                style={
+                                  isActive
+                                    ? {
+                                        backgroundColor: hex,
+                                        color: foreground,
+                                      }
+                                    : undefined
+                                }
+                                className={`rounded-lg border-2 px-4 py-2 text-sm font-medium transition ${
+                                  isActive
+                                    ? "border-transparent"
+                                    : "border-slate-200 text-slate-700"
+                                }`}
+                              >
+                                {time}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-center text-sm text-slate-400">
+                          Não há horários disponíveis :(
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </section>
+        )}
       </div>
     </div>
   );

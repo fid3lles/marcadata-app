@@ -1,7 +1,6 @@
 import {
   ListOrdered,
   CalendarDays,
-  UserRound,
   ClipboardList,
   type LucideIcon,
 } from "lucide-react";
@@ -16,14 +15,14 @@ export interface SchedulingStep {
 }
 
 /**
- * As 4 etapas do agendamento, na ordem de exibição.
+ * As 3 etapas do agendamento, na ordem de exibição.
+ * (Data, profissional e horário foram unificados na etapa 2.)
  * Os ícones podem ser trocados livremente por qualquer um do lucide-react.
  */
 export const SCHEDULING_STEPS: SchedulingStep[] = [
   { id: 1, label: "Serviços", icon: ListOrdered },
-  { id: 2, label: "Data e hora", icon: CalendarDays },
-  { id: 3, label: "Profissional", icon: UserRound },
-  { id: 4, label: "Seus dados", icon: ClipboardList },
+  { id: 2, label: "Data e horário", icon: CalendarDays },
+  { id: 3, label: "Seus dados", icon: ClipboardList },
 ];
 
 export const TOTAL_STEPS = SCHEDULING_STEPS.length;

@@ -10,12 +10,24 @@ export const PERIOD_LABELS: Record<DayPeriod, string> = {
   noite: "Noite",
 };
 
+/** Ordem em que os períodos são exibidos. */
+export const PERIOD_ORDER: DayPeriod[] = ["manha", "tarde", "noite"];
+
 /** Horários livres agrupados por período. */
 export type AvailabilityByPeriod = Record<DayPeriod, string[]>;
+
+/** Duração de cada slot exibido (em minutos). */
+const SLOT_MINUTES = 30;
 
 const toMinutes = (time: string): number => {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
+};
+
+const toTime = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 };
 
 const periodOf = (time: string): DayPeriod => {
@@ -25,41 +37,46 @@ const periodOf = (time: string): DayPeriod => {
   return "noite";
 };
 
-/** Gera horários de hora em hora dentro do funcionamento (fim exclusivo). */
-const generateHourlySlots = (openTime: ITimeRange): string[] => {
-  const start = toMinutes(openTime.start);
-  const end = toMinutes(openTime.end);
+/** Gera horários de `step` em `step` minutos, com o slot inteiro dentro da janela. */
+const generateSlots = (
+  businessHours: ITimeRange,
+  stepMinutes: number,
+): string[] => {
+  const start = toMinutes(businessHours.start);
+  const end = toMinutes(businessHours.end);
   const slots: string[] = [];
-  for (let minutes = start; minutes < end; minutes += 60) {
-    const hours = Math.floor(minutes / 60);
-    slots.push(`${String(hours).padStart(2, "0")}:00`);
+  for (let minutes = start; minutes + stepMinutes <= end; minutes += stepMinutes) {
+    slots.push(toTime(minutes));
   }
   return slots;
 };
 
-/** Verdadeiro se o horário cai dentro de algum intervalo ocupado. */
-const isBusy = (time: string, busyPeriods: ITimeRange[]): boolean => {
-  const slot = toMinutes(time);
-  return busyPeriods.some(
-    (period) => slot >= toMinutes(period.start) && slot < toMinutes(period.end),
+/** Verdadeiro se o slot [início, início+duração) colide com algum intervalo ocupado. */
+const overlapsBusy = (
+  slotStart: string,
+  durationMinutes: number,
+  busy: ITimeRange[],
+): boolean => {
+  const start = toMinutes(slotStart);
+  const end = start + durationMinutes;
+  return busy.some(
+    (range) => start < toMinutes(range.end) && end > toMinutes(range.start),
   );
 };
 
 /**
- * Calcula os horários livres de um dia, agrupados por período,
- * removendo os que colidem com os intervalos ocupados.
+ * Calcula os horários livres do dia em intervalos de 30 minutos, agrupados por
+ * período, removendo os que colidem com os intervalos ocupados (pausas /
+ * horários já marcados).
  */
 export const getAvailableSlots = (
-  openTime: ITimeRange,
-  busyPeriods: ITimeRange[],
+  businessHours: ITimeRange,
+  busy: ITimeRange[],
 ): AvailabilityByPeriod => {
   const result: AvailabilityByPeriod = { manha: [], tarde: [], noite: [] };
-  for (const time of generateHourlySlots(openTime)) {
-    if (isBusy(time, busyPeriods)) continue;
+  for (const time of generateSlots(businessHours, SLOT_MINUTES)) {
+    if (overlapsBusy(time, SLOT_MINUTES, busy)) continue;
     result[periodOf(time)].push(time);
   }
   return result;
 };
-
-/** Ordem em que os períodos são exibidos. */
-export const PERIOD_ORDER: DayPeriod[] = ["manha", "tarde", "noite"];

@@ -25,3 +25,17 @@ export interface IAgenda {
   closedDays: IClosedDay[];
   openTime: ITimeRange;
 }
+
+/** Agenda de um profissional para um dia específico. */
+export interface IProfessionalAgenda {
+  id: string;
+  professionalId: string;
+  /** Data no formato "AAAA-MM-DD". */
+  date: string;
+  /** Intervalos ocupados (atendimentos marcados, pausas). */
+  busy: ITimeRange[];
+  /** Intervalos livres informados pelo backend. */
+  available: ITimeRange[];
+  /** Janela de funcionamento no dia. */
+  businessHours: ITimeRange;
+}

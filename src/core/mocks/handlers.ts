@@ -5,6 +5,7 @@ import type {
   IBusiness,
   IBusinessProfessionals,
   IProfessional,
+  IProfessionalAgenda,
 } from "../../features/business";
 import { addDays, fromISODate, toISODate } from "../../shared/utils";
 
@@ -256,6 +257,50 @@ export const handlers = [
         ],
         closedDays: [{ date: shift(5) }, { date: shift(6) }],
         openTime: { start: "09:00", end: "18:00" },
+      };
+
+      return HttpResponse.json(agenda);
+    },
+  ),
+
+  // Agenda de um profissional num dia:
+  // GET /api/business/:businessId/professional/:professionalId/agenda?date=AAAA-MM-DD
+  http.get(
+    `${API_BASE_PATH}/business/:businessId/professional/:professionalId/agenda`,
+    async ({ params, request }) => {
+      await delay(700);
+
+      const professionalId = Number(params.professionalId);
+      const date =
+        new URL(request.url).searchParams.get("date") ?? toISODate(new Date());
+
+      // Ocupações variam por profissional + dia, só para a demo ter variedade.
+      const day = Number(date.slice(8, 10)) || 1;
+      const busyOptions = [
+        [
+          { start: "09:00", end: "10:00" },
+          { start: "12:00", end: "13:00" },
+        ],
+        [
+          { start: "10:30", end: "11:30" },
+          { start: "15:00", end: "16:30" },
+        ],
+        [
+          { start: "09:00", end: "09:30" },
+          { start: "14:00", end: "15:00" },
+          { start: "17:00", end: "18:00" },
+        ],
+      ];
+      const busy = busyOptions[(professionalId + day) % busyOptions.length];
+
+      const agenda: IProfessionalAgenda = {
+        id: `${professionalId}-${date}`,
+        professionalId: String(professionalId),
+        date,
+        busy,
+        // O front gera os slots de 30 em 30 a partir de businessHours - busy.
+        available: [],
+        businessHours: { start: "09:00", end: "18:00" },
       };
 
       return HttpResponse.json(agenda);
