@@ -10,11 +10,7 @@ export type {
   ITimeRange,
   IProfessionalAgenda,
 } from "./types/agenda.types";
-export type {
-  IProfessional,
-  IProfessionalsAvailability,
-  IBusinessProfessionals,
-} from "./types/professional.types";
+export type { IProfessional } from "./types/professional.types";
 export { BusinessService, businessService } from "./services/BusinessService";
 export { BusinessInfo } from "./components/BusinessInfo";
 export type { BusinessInfoProps } from "./components/BusinessInfo";

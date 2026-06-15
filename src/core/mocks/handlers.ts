@@ -3,34 +3,34 @@ import { API_BASE_PATH } from "../api";
 import type {
   IAgenda,
   IBusiness,
-  IBusinessProfessionals,
   IProfessional,
   IProfessionalAgenda,
 } from "../../features/business";
 import { addDays, fromISODate, toISODate } from "../../shared/utils";
 
-/** Profissionais base da loja (a disponibilidade varia por horário no mock). */
-const PROFESSIONALS: IProfessional[] = [
-  {
-    id: 1,
-    name: "João Silva",
-    expertise: "Cabeleireiro",
-    imgHref:
-      "https://img.magnific.com/fotos-premium/cabeleireiro-trabalhando-em-um-salao-de-cabeleireiro-barbeiro-usando-tesoura-isolada-em-preto-cortar-cabelo-de-um-barbeiro-em-uma-barbearia-homem-caucasiano-barbador-em-salao-de-cabelo-barbearia-elegante_474717-185694.jpg",
-  },
+/** Profissionais por loja (agora retornados junto do business). */
+const SHANTT_PROFESSIONALS: IProfessional[] = [
+  { id: 1, firstname: "João", lastname: "Silva", specialty: "Cabeleireiro", imageHref: "" },
   {
     id: 2,
-    name: "Maria Oliveira",
-    expertise: "Cabeleireira",
-    imgHref:
+    firstname: "Maria",
+    lastname: "Oliveira",
+    specialty: "Cabeleireira",
+    imageHref:
       "https://i.pinimg.com/236x/f0/98/f5/f098f54268c1980db43620eae0b65918.jpg",
   },
   {
     id: 3,
-    name: "Carlos Pereira",
-    expertise: "Cabeleireiro",
-    imgHref: "",
+    firstname: "Carlos",
+    lastname: "Pereira",
+    specialty: "Cabeleireiro",
+    imageHref: "",
   },
+];
+
+const AUMIAU_PROFESSIONALS: IProfessional[] = [
+  { id: 1, firstname: "Ana", lastname: "Costa", specialty: "Tosadora", imageHref: "" },
+  { id: 2, firstname: "Bruno", lastname: "Almeida", specialty: "Banhista", imageHref: "" },
 ];
 
 /** Lojas mockadas, indexadas pelo slug. */
@@ -98,6 +98,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         duration: 5,
       },
     ],
+    professionals: SHANTT_PROFESSIONALS,
   },
 
   aumiau: {
@@ -179,6 +180,7 @@ const BUSINESSES: Record<string, IBusiness> = {
         duration: 20,
       },
     ],
+    professionals: AUMIAU_PROFESSIONALS,
   },
 };
 
@@ -202,9 +204,8 @@ export const handlers = [
     return HttpResponse.json(business);
   }),
 
-  // Agenda da loja: GET /api/business/:businessId/agenda
-  // - ?datestart=AAAA-MM-DDTHH:mm:ssZ  → profissionais disponíveis no horário
-  // - ?date=AAAA-MM-DD                 → ocupações/dias fechados/funcionamento
+  // Agenda da loja (ocupações/dias fechados/funcionamento):
+  // GET /api/business/:businessId/agenda?date=AAAA-MM-DD
   http.get(
     `${API_BASE_PATH}/business/:businessId/agenda`,
     async ({ params, request }) => {
@@ -212,25 +213,6 @@ export const handlers = [
 
       const searchParams = new URL(request.url).searchParams;
       const businessId = Number(params.businessId);
-
-      // Profissionais para um horário específico.
-      const dateStart = searchParams.get("datestart");
-      if (dateStart) {
-        // A disponibilidade varia conforme a hora, só para a demo refletir a
-        // troca de horário: um profissional fica indisponível por vez.
-        const hour = Number(dateStart.slice(11, 13)) || 0;
-        const unavailableIndex = hour % PROFESSIONALS.length;
-
-        const professionals: IBusinessProfessionals = {
-          businessId,
-          professionals: {
-            available: PROFESSIONALS.filter((_, i) => i !== unavailableIndex),
-            unavailable: PROFESSIONALS.filter((_, i) => i === unavailableIndex),
-          },
-        };
-
-        return HttpResponse.json(professionals);
-      }
 
       // Datas geradas relativas à data pedida, para a demo ficar coerente.
       const dateParam = searchParams.get("date") ?? toISODate(new Date());

@@ -1,3 +1,5 @@
+import type { IProfessional } from "./professional.types";
+
 /** Endereço de um estabelecimento. */
 export interface IAddress {
   street: string;
@@ -30,4 +32,5 @@ export interface IBusiness {
   color: string;
   address: IAddress;
   providedServices: IProvidedService[];
+  professionals: IProfessional[];
 }

@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 import { ChevronRight, Loader2 } from "lucide-react";
-import type {
-  IBusinessProfessionals,
-  IProfessionalAgenda,
-} from "../../../business";
+import type { IProfessional, IProfessionalAgenda } from "../../../business";
 import {
   addDays,
   getReadableForeground,
@@ -27,10 +24,8 @@ export interface DateTimeStepProps {
   /** Chamado ao escolher uma data. */
   onSelectDate: (date: string) => void;
 
-  /** Profissionais da loja. */
-  professionals: IBusinessProfessionals | null;
-  professionalsLoading: boolean;
-  professionalsError: boolean;
+  /** Profissionais da loja (vêm junto do business). */
+  professionals: IProfessional[];
   /** Profissional selecionado, ou null. */
   selectedProfessionalId: number | null;
   onSelectProfessional: (id: number) => void;
@@ -50,12 +45,8 @@ export interface DateTimeStepProps {
 const VISIBLE_DAYS = 14;
 
 /** Iniciais do primeiro e do último nome, usadas quando não há foto. */
-const initialsOf = (name: string): string => {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-  return (first + last).toUpperCase();
-};
+const initialsOf = (firstname: string, lastname: string): string =>
+  `${firstname[0] ?? ""}${lastname[0] ?? ""}`.toUpperCase();
 
 /**
  * Etapa 2: data → profissional → horário.
@@ -69,8 +60,6 @@ export function DateTimeStep({
   selectedDate,
   onSelectDate,
   professionals,
-  professionalsLoading,
-  professionalsError,
   selectedProfessionalId,
   onSelectProfessional,
   onClearProfessional,
@@ -90,15 +79,13 @@ export function DateTimeStep({
   );
 
   // Profissional selecionado (encontrado na lista) para o card compacto.
-  const selectedProfessional = useMemo(() => {
-    if (selectedProfessionalId === null || !professionals) return null;
-    return (
-      [
-        ...professionals.professionals.available,
-        ...professionals.professionals.unavailable,
-      ].find((p) => p.id === selectedProfessionalId) ?? null
-    );
-  }, [selectedProfessionalId, professionals]);
+  const selectedProfessional = useMemo(
+    () =>
+      selectedProfessionalId === null
+        ? null
+        : (professionals.find((p) => p.id === selectedProfessionalId) ?? null),
+    [selectedProfessionalId, professionals],
+  );
 
   // Horários livres (30 em 30) da agenda do profissional, agrupados por período.
   const availability = useMemo(
@@ -170,9 +157,9 @@ export function DateTimeStep({
                   className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition active:scale-[0.99]"
                 >
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
-                    {selectedProfessional.imgHref ? (
+                    {selectedProfessional.imageHref ? (
                       <img
-                        src={selectedProfessional.imgHref}
+                        src={selectedProfessional.imageHref}
                         alt=""
                         className="h-full w-full object-cover"
                       />
@@ -181,17 +168,21 @@ export function DateTimeStep({
                         className="text-sm font-bold"
                         style={{ color: hex }}
                       >
-                        {initialsOf(selectedProfessional.name)}
+                        {initialsOf(
+                          selectedProfessional.firstname,
+                          selectedProfessional.lastname,
+                        )}
                       </span>
                     )}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-bold">
-                      {selectedProfessional.name}
+                      {selectedProfessional.firstname}{" "}
+                      {selectedProfessional.lastname}
                     </p>
                     <p className="truncate text-sm opacity-80">
-                      {selectedProfessional.expertise}
+                      {selectedProfessional.specialty}
                     </p>
                   </div>
 
@@ -202,9 +193,7 @@ export function DateTimeStep({
                 </button>
               ) : (
                 <ProfessionalCarousel
-                  data={professionals}
-                  loading={professionalsLoading}
-                  error={professionalsError}
+                  professionals={professionals}
                   color={color}
                   selectedProfessionalId={selectedProfessionalId}
                   onSelect={onSelectProfessional}

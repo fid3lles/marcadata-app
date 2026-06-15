@@ -6,7 +6,6 @@ import { formatCurrency, toCssHex, toISODate } from "../../../../shared/utils";
 import {
   businessService,
   type IBusiness,
-  type IBusinessProfessionals,
   type IProfessionalAgenda,
   type IProvidedService,
 } from "../../../business";
@@ -42,10 +41,6 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
   // Etapa 2 — data, profissional e horário.
   const todayIso = useMemo(() => toISODate(new Date()), []);
   const [selectedDate, setSelectedDate] = useState<string | null>(todayIso);
-  const [professionals, setProfessionals] =
-    useState<IBusinessProfessionals | null>(null);
-  const [professionalsLoading, setProfessionalsLoading] = useState(false);
-  const [professionalsError, setProfessionalsError] = useState(false);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<
     number | null
   >(null);
@@ -117,31 +112,6 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
 
   const goNext = () => setCurrentStep((step) => Math.min(step + 1, TOTAL_STEPS));
   const goBack = () => setCurrentStep((step) => Math.max(step - 1, 1));
-
-  // Busca os profissionais da loja uma única vez, ao chegar na etapa 2.
-  useEffect(() => {
-    if (currentStep !== 2 || professionals) return;
-
-    let active = true;
-    setProfessionalsLoading(true);
-    setProfessionalsError(false);
-
-    businessService
-      .getProfessionals(business.businessId, `${todayIso}T00:00:00Z`)
-      .then((data) => {
-        if (active) setProfessionals(data);
-      })
-      .catch(() => {
-        if (active) setProfessionalsError(true);
-      })
-      .finally(() => {
-        if (active) setProfessionalsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [currentStep, professionals, business.businessId, todayIso]);
 
   // Busca a agenda do profissional para a data escolhida (com cache).
   useEffect(() => {
@@ -435,9 +405,7 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
             color={business.color}
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
-            professionals={professionals}
-            professionalsLoading={professionalsLoading}
-            professionalsError={professionalsError}
+            professionals={business.professionals}
             selectedProfessionalId={selectedProfessionalId}
             onSelectProfessional={handleSelectProfessional}
             onClearProfessional={handleClearProfessional}

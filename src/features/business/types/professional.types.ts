@@ -1,21 +1,10 @@
 /** Profissional que pode atender o cliente. */
 export interface IProfessional {
   id: number;
-  name: string;
+  firstname: string;
+  lastname: string;
   /** Especialidade (ex.: "Cabeleireiro"). */
-  expertise: string;
+  specialty: string;
   /** URL da foto do profissional; pode vir vazia. */
-  imgHref: string;
-}
-
-/** Profissionais separados por disponibilidade em um horário. */
-export interface IProfessionalsAvailability {
-  available: IProfessional[];
-  unavailable: IProfessional[];
-}
-
-/** Resposta do endpoint de profissionais de uma loja para um horário. */
-export interface IBusinessProfessionals {
-  businessId: number;
-  professionals: IProfessionalsAvailability;
+  imageHref: string;
 }
