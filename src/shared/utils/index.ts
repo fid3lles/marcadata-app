@@ -7,3 +7,5 @@ export {
   getWeekdayShort,
   getDayMonth,
 } from "./date";
+export { addEventToCalendar, getMobilePlatform } from "./calendar";
+export type { CalendarEvent } from "./calendar";

@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import confetti from "canvas-confetti";
 import { CalendarPlus, CircleCheckBig, Loader2, Send } from "lucide-react";
 import whatsappIcon from "../../../../assets/whatsapp_icon.svg";
-import { formatCurrency, toCssHex, toISODate } from "../../../../shared/utils";
+import {
+  addEventToCalendar,
+  formatCurrency,
+  toCssHex,
+  toISODate,
+} from "../../../../shared/utils";
 import {
   businessService,
   type IBusiness,
@@ -223,7 +228,7 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
       .finally(() => setSubmitting(false));
   };
 
-  // Abre o Google Calendar já com os dados do agendamento preenchidos.
+  // Adiciona o agendamento ao calendário nativo (iOS via .ics, Android via Google).
   const handleAddToCalendar = () => {
     if (!selectedDate || !selectedTime) return;
 
@@ -235,34 +240,16 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
       ) || 60;
     const end = new Date(start.getTime() + minutes * 60_000);
 
-    // Formato exigido pelo Google Calendar: AAAAMMDDTHHMMSS (horário local).
-    const fmt = (date: Date) =>
-      [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, "0"),
-        String(date.getDate()).padStart(2, "0"),
-        "T",
-        String(date.getHours()).padStart(2, "0"),
-        String(date.getMinutes()).padStart(2, "0"),
-        "00",
-      ].join("");
-
     const { address } = business;
-    const params = new URLSearchParams({
-      action: "TEMPLATE",
-      text: `Agendamento · ${business.businessName}`,
-      dates: `${fmt(start)}/${fmt(end)}`,
+    addEventToCalendar({
+      title: `Agendamento · ${business.businessName}`,
+      start,
+      end,
       details: selectedServices
         .map((item) => `${item.quantity}x ${item.service.name}`)
         .join(", "),
       location: `${address.street}, ${address.number} - ${address.city}/${address.state}`,
     });
-
-    window.open(
-      `https://calendar.google.com/calendar/render?${params.toString()}`,
-      "_blank",
-      "noopener",
-    );
   };
 
   // Abre o WhatsApp com uma mensagem inicial.
