@@ -68,13 +68,19 @@ const overlapsBusy = (
  * Calcula os horários livres do dia em intervalos de 30 minutos, agrupados por
  * período, removendo os que colidem com os intervalos ocupados (pausas /
  * horários já marcados).
+ *
+ * @param afterTime Quando informado ("HH:mm"), descarta horários que já
+ *   começaram (úteis para o dia atual, evitando agendar no passado).
  */
 export const getAvailableSlots = (
   businessHours: ITimeRange,
   busy: ITimeRange[],
+  afterTime?: string,
 ): AvailabilityByPeriod => {
+  const minMinutes = afterTime ? toMinutes(afterTime) : -1;
   const result: AvailabilityByPeriod = { manha: [], tarde: [], noite: [] };
   for (const time of generateSlots(businessHours, SLOT_MINUTES)) {
+    if (toMinutes(time) <= minMinutes) continue; // horário já passou
     if (overlapsBusy(time, SLOT_MINUTES, busy)) continue;
     result[periodOf(time)].push(time);
   }

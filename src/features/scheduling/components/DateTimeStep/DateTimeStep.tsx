@@ -88,16 +88,24 @@ export function DateTimeStep({
   );
 
   // Horários livres (30 em 30) da agenda do profissional, agrupados por período.
-  const availability = useMemo(
-    () =>
-      professionalAgenda
-        ? getAvailableSlots(
-            professionalAgenda.businessHours,
-            professionalAgenda.busy,
-          )
-        : { manha: [], tarde: [], noite: [] },
-    [professionalAgenda],
-  );
+  // No dia atual, descarta horários que já passaram.
+  const availability = useMemo(() => {
+    if (!professionalAgenda) return { manha: [], tarde: [], noite: [] };
+
+    const now = new Date();
+    const isToday = selectedDate === toISODate(now);
+    const afterTime = isToday
+      ? `${String(now.getHours()).padStart(2, "0")}:${String(
+          now.getMinutes(),
+        ).padStart(2, "0")}`
+      : undefined;
+
+    return getAvailableSlots(
+      professionalAgenda.businessHours,
+      professionalAgenda.busy,
+      afterTime,
+    );
+  }, [professionalAgenda, selectedDate]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
