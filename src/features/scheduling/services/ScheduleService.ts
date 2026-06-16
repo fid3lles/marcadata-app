@@ -1,19 +1,31 @@
 import { httpClient } from "../../../core/api";
-import type { IScheduleRequest, IScheduleResponse } from "../types";
+import type {
+  ICreateScheduleRequest,
+  ICreateScheduleResponse,
+} from "../types";
 
 /**
  * Serviço responsável por criar agendamentos.
  */
 export class ScheduleService {
   /**
-   * Cria um agendamento.
+   * Cria um agendamento na agenda de um profissional.
    *
-   * POST {@link API_BASE_PATH}/schedule
+   * POST {@link API_BASE_PATH}/business/:businessId/professional/:professionalId/agenda
    *
-   * @param payload Dados do cliente, serviços, data/hora e profissional.
+   * @param businessId Id da loja.
+   * @param professionalId Id do profissional.
+   * @param payload Dados do cliente, termos e agendamento (serviços + início).
    */
-  create(payload: IScheduleRequest): Promise<IScheduleResponse> {
-    return httpClient.post<IScheduleResponse>("/schedule", payload);
+  create(
+    businessId: number,
+    professionalId: number,
+    payload: ICreateScheduleRequest,
+  ): Promise<ICreateScheduleResponse> {
+    return httpClient.post<ICreateScheduleResponse>(
+      `/business/${businessId}/professional/${professionalId}/agenda`,
+      payload,
+    );
   }
 }
 

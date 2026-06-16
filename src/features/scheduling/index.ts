@@ -17,8 +17,7 @@ export type { SchedulingStep } from "./steps";
 export { ScheduleService, scheduleService } from "./services/ScheduleService";
 export type {
   SelectedService,
-  IScheduleServiceSelection,
-  IScheduleRequest,
-  IScheduleAddress,
-  IScheduleResponse,
+  IScheduleInput,
+  ICreateScheduleRequest,
+  ICreateScheduleResponse,
 } from "./types";

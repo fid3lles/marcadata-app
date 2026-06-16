@@ -16,7 +16,7 @@ import { PersonalDataStep } from "../PersonalDataStep";
 import { TOTAL_STEPS } from "../../steps";
 import { isValidFullName, isValidPhone } from "../../personalData";
 import { scheduleService } from "../../services/ScheduleService";
-import type { IScheduleRequest, SelectedService } from "../../types";
+import type { ICreateScheduleRequest, SelectedService } from "../../types";
 
 export interface SchedulingFormProps {
   /** Estabelecimento sendo agendado (cor, serviços, etc.). */
@@ -191,35 +191,32 @@ export function SchedulingForm({ business }: SchedulingFormProps) {
     setSelectedTime(null);
   };
 
-  // Monta o payload e cria o agendamento (POST /schedule).
+  // Monta o payload e cria o agendamento na agenda do profissional.
   const handleSubmit = () => {
     if (!selectedDate || !selectedTime || selectedProfessionalId === null) {
       return;
     }
 
-    const payload: IScheduleRequest = {
-      customerName: customerName.trim(),
-      customerCellphone: customerPhone.replace(/\D/g, ""),
-      startDateTime: `${selectedDate}T${selectedTime}`,
-      servicesSelected: selectedServices.map((item) => ({
-        id: item.service.id,
-        quantity: item.quantity,
-      })),
-      estimatedTime: selectedServices.reduce(
-        (sum, item) => sum + item.service.duration * item.quantity,
-        0,
-      ),
-      professionalId: selectedProfessionalId,
-      businessId: business.businessId,
+    const payload: ICreateScheduleRequest = {
+      fullname: customerName.trim(),
+      cellphone: customerPhone.replace(/\D/g, ""),
+      acceptedTerms: whatsappConsent,
+      schedule: {
+        // Repete o id por unidade da quantidade escolhida.
+        selectedServicesIds: selectedServices.flatMap((item) =>
+          Array<number>(item.quantity).fill(item.service.id),
+        ),
+        startDateTime: `${selectedDate}T${selectedTime}`,
+      },
     };
 
     setSubmitting(true);
     setSubmitError(false);
 
     scheduleService
-      .create(payload)
+      .create(business.businessId, selectedProfessionalId, payload)
       .then((response) => {
-        setScheduleId(response.id);
+        setScheduleId(String(response.scheduleId));
         setSubmitted(true);
       })
       .catch(() => setSubmitError(true))

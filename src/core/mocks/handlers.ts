@@ -5,7 +5,12 @@ import type {
   IBusiness,
   IProfessional,
   IProfessionalAgenda,
+  IProvidedService,
 } from "../../features/business";
+import type {
+  ICreateScheduleRequest,
+  ICreateScheduleResponse,
+} from "../../features/scheduling";
 import { addDays, fromISODate, toISODate } from "../../shared/utils";
 
 /** Profissionais por loja (agora retornados junto do business). */
@@ -289,24 +294,46 @@ export const handlers = [
     },
   ),
 
-  // Criação de agendamento: POST /api/schedule
-  http.post(`${API_BASE_PATH}/schedule`, async () => {
-    await delay(1200);
+  // Criação de agendamento:
+  // POST /api/business/:businessId/professional/:professionalId/agenda
+  http.post(
+    `${API_BASE_PATH}/business/:businessId/professional/:professionalId/agenda`,
+    async ({ params, request }) => {
+      await delay(1200);
 
-    return HttpResponse.json({
-      id: "1",
-      startDateHour: "2026-01-01T09:00:00Z",
-      endDateHour: "2026-01-01T17:00:00Z",
-      address: {
-        street: "Rua Exemplo",
-        number: "123",
-        complement: "Apto 45",
-        district: "Centro",
-        city: "São Paulo",
-        state: "SP",
-        country: "Brasil",
-        zipCode: "01234-567",
-      },
-    });
-  }),
+      const body = (await request.json()) as ICreateScheduleRequest;
+      const businessId = Number(params.businessId);
+
+      // Soma preço/duração dos serviços escolhidos para um retorno coerente.
+      const business = Object.values(BUSINESSES).find(
+        (item) => item.businessId === businessId,
+      );
+      const chosen = body.schedule.selectedServicesIds
+        .map((id) => business?.providedServices.find((s) => s.id === id))
+        .filter((s): s is IProvidedService => Boolean(s));
+
+      const totalPrice = chosen.reduce((sum, s) => sum + s.price, 0);
+      const totalMinutes =
+        chosen.reduce((sum, s) => sum + s.duration, 0) || 30;
+
+      // "AAAA-MM-DDTHH:mm" (horário local).
+      const start = new Date(`${body.schedule.startDateTime}:00`);
+      const end = new Date(start.getTime() + totalMinutes * 60_000);
+      const fmt = (date: Date) =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+          date.getDate(),
+        ).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(
+          date.getMinutes(),
+        ).padStart(2, "0")}`;
+
+      const response: ICreateScheduleResponse = {
+        scheduleId: 1,
+        startDateTime: body.schedule.startDateTime,
+        endDateTime: fmt(end),
+        totalPrice,
+      };
+
+      return HttpResponse.json(response);
+    },
+  ),
 ];
